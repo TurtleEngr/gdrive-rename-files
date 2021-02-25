@@ -1,7 +1,7 @@
 /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/rename-files.js,v $
- * @copyright $Date: 2021/02/25 02:55:46 $ UTC
- * @version $Revision: 1.24 $
+ * @copyright $Date: 2021/02/25 02:59:57 $ UTC
+ * @version $Revision: 1.25 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * If testing:
@@ -93,10 +93,10 @@ class Exception extends Error {
 }
 
 /** ------------------------------------
-  * @class
-  * @classdesc Get files with rename, execute renames, undo renames
-  * @param {obj} pArg - {configName: 'Interface', logName: 'RenameList', debug: true, test: false}
-  */
+ * @class
+ * @classdesc Get files with rename, execute renames, undo renames
+ * @param {obj} pArg - {configName: 'Interface', logName: 'RenameList', debug: true, test: false}
+ */
 class RenameFiles {
   constructor(pArg = {}) {
     this.debug = pArg.debug == undefined ? false : pArg.debug;
@@ -113,7 +113,7 @@ class RenameFiles {
       throw new Exception('The "' + this.sheetUI + '" sheet is missing! It must be restored.', 'fatal-error')
 
     this.uiInfo = {
-      version: { cell: 'A2', index: 0, type: 's', value: '$Revision: 1.24 $' },
+      version: { cell: 'A2', index: 0, type: 's', value: '$Revision: 1.25 $' },
       topFolderName: { cell: 'D3', index: 0, type: 's', value: '' },
     };
     this.uiRange = { cell: 'B3:B13' };
