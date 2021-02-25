@@ -1,9 +1,10 @@
 /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/test-rename-files.js,v $
- * @copyright $Date: 2021/02/23 22:49:08 $ UTC
- * @version $Revision: 1.5 $
+ * @copyright $Date: 2021/02/25 07:15:51 $ UTC
+ * @version $Revision: 1.6 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
+ * @requires gsunit-test.gs
  *
  * Prefix codes:
  *  pName       - a parameter passed into a function
@@ -22,7 +23,11 @@
 // ==============================================
 // Define menus
 
-// ----------------------
+/** ----------------------
+ * @function This is called by the "top" onOpen menu function.
+ * @param {obj} pUi - the ui handle for the SS
+ * @param {obj} pMenu - the handle for the menu object
+ */
 function menuTestRename(pUi, pMenu) {
   pMenu = pMenu.addSeparator()
     .addSubMenu(pUi.createMenu('Test Replace')
@@ -37,24 +42,125 @@ function menuTestRename(pUi, pMenu) {
       .addItem('RunAll Test', 'runAllTests')
       .addItem('Clean Up', 'runCleanup')
     );
-  if (typeof menuGsUnitTest)
+  if (typeof menuGsUnitTest === 'function')
     pMenu = menuGsUnitTest(pUi, pMenu);
   return pMenu;
 }
 
-// ==============================================
-// Define Unit Tests
+// ======================================
+/* Run Unit Tests - Select the tests to be run.
+ * (no args so they can be called by the UI menu)
+ */
 
+/** ----------------------
+ * @function Cleanup after all tests.
+ */
+function runCleanup() {
+  let testF = new TestSetup();
+  testF.delTestFolder();
+} // runCleanup
+
+/** ----------------------
+ * @function Run all the unit tests. List them in the array passed to runTests.
+ */
+function runAllTests() {
+  let tSetup = new TestSetup();
+  if (tSetup.exists)
+    tSetup.delTestFolder();
+  runTests([makeClassUnit, replaceSmokeUnit, replaceTestManyUnit, checkConfigUnit, getFilesUnit,
+    getFilesUiUnit, renameFilesUnit, undoFilesUnit])
+}
+
+/** ----------------------
+ * @function Verify the RenameFiles class is created OK.
+ */
+function runMakeClass() {
+  runTests([makeClassUnit]);
+}
+
+/** ----------------------
+ * @function Verify the Replace method is working OK.
+ */function runReplaceSmokeTest() {
+  runTests([replaceSmokeUnit]);
+}
+
+/** ----------------------
+ * @function Replace a lot of names.
+ */function runReplaceTestMany() {
+  runTests([replaceTestManyUnit]);
+}
+
+/** ----------------------
+ * @function Verify the getConfig is working for all pass/fail checks
+ */function runCheckConfig() {
+  runTests([checkConfigUnit]);
+}
+
+/** ----------------------
+ * @function Verify GetFiles is functional.
+ */function runGetFilesTest() {
+  runTests([getFilesUnit]);
+}
+
+/** ----------------------
+ * @function Verify the GetFiles UI is working.
+ */function runGetFilesUi() {
+  runTests([getFilesUiUnit]);
+}
+
+/** ----------------------
+ * @function Verify RenameList is functional.
+ */
+function runRenameFiles() {
+  runTests([renameFilesUnit]);
+}
+
+/** ----------------------
+ * @function Verfify UndoList is functional.
+ */
+function runUndoFiles() {
+  runTests([undoFilesUnit]);
+}
+
+/** -------------------------------------------------------
+ * @function Run the tests specified with the above functions.
+ * @param {array} pTestFun - this will be one or more function names.
+ */
+function runTests(pTestFun = []) {
+  console.time('runTests');
+
+  var tUnit = new GsUnit({ name: 'base', debug: false });
+  
+  let tRun = new RunTests({ name: "TestReplace", debug: false, gsunit: tUnit });
+  tRun.debug = false;
+  tRun.showPass = true;
+  tRun.showInConsole = true;
+  tRun.showToast = false;
+  tRun.showInSheet = true;
+  tRun.showResults = true;
+
+  tRun.resetTests();
+  for (let tTest of pTestFun)
+    tTest(tRun, tUnit);
+  tRun.runTests();
+
+  //tRun.testResults();
+  console.timeEnd('runTests');
+} // runTests
+
+// ==============================================
+// Support functions for the Unit Tests
+
+/** ----------------------
+ * @class
+ * @classdesc Create test directory structure.
+ * @param {obj} pArg = {name: 'test-tmp', size: 'large', debug: false}
+ * @description Test with the simple structure. With debug==true, the output can be quickly verified.
+ * @example tTestDirs = TestSetup({size: 'simple', debug: true});
+ */
 class TestSetup {
-  // ----------------------
   constructor(pArg = {}) {
-    /**
-     * @class
-     * @classdesc Create directory structure
-     * @param {obj} pArg = {name: 'test-tmp', size: 'large', debug: false}
-     * @description Test with the simple structure. With debug==true, the output can be quickly verified.
-     * @example tTestDirs = TestSetup({size:'simple', debug: true});
-     */
+    
     this.name = pArg.name == undefined ? 'test-tmp' : pArg.name;  // Top folder name SS directory
     this.size = pArg.size == undefined ? 'large' : pArg.size;    // Number of nested folder/files
     this.debug = pArg.debug == undefined ? false : pArg.debug;    // Useful to debugging the structure
@@ -217,10 +323,29 @@ class TestSetup {
           ],
         ]
     }
-  }
-  // constructor
+  } // constructor
 
-  // ----------------------
+  /** ----------------------
+   * @method Delete all of the test folders.
+   */
+  delTestFolder() {
+    if (!this.exists) {
+      console.warn('Folder "' + this.name + '" does not exist.');
+      return;
+    }
+    if (!this.debug) {
+      this.testFolder.setTrashed(true);
+      this.exists = false;
+      this.testFolder = null;
+      this.testURL = '';
+    }
+    console.info('Moved folder ' + this.name + ' to trash.');
+    this.ss.toast('Moved folder ' + this.name + ' to trash.', 'Notice', 30);
+  } // delTestFolder
+  
+  /** ----------------------
+   * @method Add the folders specified with this.size and this.name
+   */
   addTestFolder() {
     try {
       if (this.exists) {
@@ -239,8 +364,11 @@ class TestSetup {
       console.error(e.stack);
       throw e;
     }
-  }
+  } // addTestFolder
 
+  /** ------
+   * @method Recursevely step through the array structure to create the folders and files
+   */
   _walkStructure(pArray, pFolder, pFolderName) {
     for (let tEl of pArray)
       if (Array.isArray(tEl))
@@ -256,7 +384,17 @@ class TestSetup {
     if (pEl.type == 'folder')
       return ({ pFolderName, pFolder } = this._createFolder(pEl, pFolderName, pFolder));
     throw new SyntaxError('Invalid type.');
-  }
+
+    //END
+    function elParentMatches(pEl, pFolderName) {
+      if (pEl.name === '')
+        throw new Error('Internal Error: missing name.');
+      if (pEl.type === '')
+        throw new Error('Internal Error: missing type.');
+      if (pEl.parent != undefined && pEl.parent !== pFolderName)
+        throw new SyntaxError('Bad structure. Expected: "' + pEl.parent + '"');
+    }
+  } // _processElement
 
   _createFolder(pEl, pFolderName, pFolder) {
     console.info('Create folder: "' + pEl.name + '" in "' + pFolderName + '"');
@@ -270,38 +408,11 @@ class TestSetup {
     pFolder.createFile(pEl.name, 'content');
     return { pFolderName, pFolder };
   }
-  // addTestFolder
-
-  // ----------------------
-  delTestFolder() {
-    if (!this.exists) {
-      console.warn('Folder "' + this.name + '" does not exist.');
-      return;
-    }
-    if (!this.debug) {
-      this.testFolder.setTrashed(true);
-      this.exists = false;
-      this.testFolder = null;
-      this.testURL = '';
-    }
-    console.info('Moved folder ' + this.name + ' to trash.');
-    this.ss.toast('Moved folder ' + this.name + ' to trash.', 'Notice', 30);
-  }
-  // delTestFolder
 } // TestSetup
 
-// ------
-function elParentMatches(pEl, pFolderName) {
-  if (pEl.name === '')
-    throw new Error('Internal Error: missing name.');
-  if (pEl.type === '')
-    throw new Error('Internal Error: missing type.');
-  if (pEl.parent != undefined && pEl.parent !== pFolderName)
-    throw new SyntaxError('Bad structure. Expected: "' + pEl.parent + '"');
-}
-// elParentMatches
-
-// ----------------------
+/** ----------------------
+ * @function Set all of the Interface UI cells to the default values in uiMap
+ */
 function setDefaults(pRenObj) {
   let tDefaultValues = [];
   for (let tKey in pRenObj.uiMap)
@@ -309,23 +420,25 @@ function setDefaults(pRenObj) {
   pRenObj.stu.getRange(pRenObj.uiRange.cell).setBackground('white').setValues(tDefaultValues);
 } // setDefaults
 
-// ----------------------
+/** ----------------------
+ * @function Set one or more paticular Interface UI cells to the passed values.
+ * @param {obj} pRenObj
+ * @param {obj} pArg - list of name:value pairs. {name: value, name: value, ...}
+ *  where "name" is a uiMap key.
+ */
 function setUiFields(pRenObj, pArg = {}) {
-  /**
-   * @param {obj} pRenObj
-   * @param {name: value, name: value, ...} pArg   // list of name:value pairs
-   */
   for (let tKey in pArg)
     pRenObj.stu.getRange(pRenObj.uiMap[tKey].cell).setBackground('white').setValue(pArg[tKey]);
 } // setDefaults
 
-// ----------------------
+/** ----------------------
+ * @function This is a set of common setup steps that are used by many Unit Tests.
+ * @description Create test files. Set pArg.obj to top folder. Setup default values in SS. Get config vars from SS.
+ * If pArg.reset is true, delete the struct and recreate.
+ * @param {obj} pArg - {obj: RenObj, size: SetupSize, reset: Setup.delTestFolder?}
+ * @return Setup obj
+ */
 function setupTestFolders(pArg = {}) {
-  /**
-   * @return Setup object
-   * @description Create test files. Set pArg.obj to top folder. Setup default values in SS. Get config vars from SS.
-   * If pArg.reset is true, delete the struct and recreate.
-   */
   let pRenObj = pArg.obj;  // required
   let pSize = pArg.size == undefined ? 'large' : pArg.size;  // Dir struct size
   let pResetUp = pArg.reset == undefined ? false : pArg.reset;
@@ -338,10 +451,15 @@ function setupTestFolders(pArg = {}) {
   return tSetup;
 } // setupTestFolders
 
-// ---------------------
+// ==============================================
+// Define the Unit Tests
+
+/** ----------------------
+ * @function Assertions for creation of RenameFiles class.
+ */
 function makeClassUnit(pTest, pUnit) {
-  let tTest;
   // ------
+  pTest.addTest(testRenameClass);
   function testRenameClass() {
     let tRenObj = new RenameFiles({ logName: 'RenameList', test: true });
 
@@ -359,75 +477,64 @@ function makeClassUnit(pTest, pUnit) {
     //tRenObj.stu.activate();
     //pUnit.assertEqual('Interface is active.', tRenObj.ss.getActiveSheet().getName(), 'Interface', 'mcu5');
   }
-  pTest.addTest(testRenameClass);
-
 } // makeClassUnit
 
-// ---------------------
+/** ----------------------
+ * @function Test the replaceSpecial method
+ */
 function replaceSmokeUnit(pTest, pUnit) {
   // ------
+  pTest.addTest(testReplace_1);
   function testReplace_1() {
-    let tInput = [];
-    let tOutput = [];
-    let tTest;
+    let tIn;
+    let tOut;
 
     let tRenObj = new RenameFiles({ logName: 'RenameList', test: true });
 
-    tTest = 'tr1.1';
-    tInput[tTest] = 'a#A@@cde-fg.hi_jk';
-    tOutput[tTest] = 'a_A_cde-fg.hi_jk';
-    pUnit.assertEqual('replace non-alphanum', tRenObj.replaceSpecial(tInput[tTest]), tOutput[tTest], tTest);
+    tIn = 'a#A@@cde-fg.hi_jk';
+    tOut = 'a_A_cde-fg.hi_jk';
+    pUnit.assertEqual('replace non-alphanum', tRenObj.replaceSpecial(tIn), tOut, 'tr1.1');
 
-    tTest = 'tr1.2';
-    tInput[tTest] = 'a#A@@cde-fg.hi_jk^l99!!8.foo';
-    tOutput[tTest] = 'a_A_cde-fg.hi_jk_l99_8.foo';
-    pUnit.assertEqual('replace non-alphanum', tRenObj.replaceSpecial(tInput[tTest]), tOutput[tTest], tTest);
+    tIn = 'a#A@@cde-fg.hi_jk^l99!!8.foo';
+    tOut = 'a_A_cde-fg.hi_jk_l99_8.foo';
+    pUnit.assertEqual('replace non-alphanum', tRenObj.replaceSpecial(tIn), tOut, 'tr1.2');
 
-    tTest = 'tr1.3';
-    tInput[tTest] = 'a\\b\'c\"d\(e\)f&g';
-    tOutput[tTest] = 'a_b_c_d_e_f_g';
-    pUnit.assertEqual('replace escaped char', tRenObj.replaceSpecial(tInput[tTest]), tOutput[tTest], tTest);
+    tIn = 'a\\b\'c\"d\(e\)f&g';
+    tOut = 'a_b_c_d_e_f_g';
+    pUnit.assertEqual('replace escaped char', tRenObj.replaceSpecial(tIn), tOut, 'tr1.3');
 
-    tTest = 'tr1.4';
-    tInput[tTest] = 'a\\b\'c\"d!e@f#g$h%i^j&k*l(m)n_o+p-q=r[s]t{u}v|w;x:y,z.< >/?';
-    tOutput[tTest] = 'a_b_c_d_e_f_g_h_i_j_k_l_m_n_o_p-q_r_s_t_u_v_w_x_y_z';
+    tIn = 'a\\b\'c\"d!e@f#g$h%i^j&k*l(m)n_o+p-q=r[s]t{u}v|w;x:y,z.< >/?';
+    tOut = 'a_b_c_d_e_f_g_h_i_j_k_l_m_n_o_p-q_r_s_t_u_v_w_x_y_z';
     //                a_b_c_d_e_f_g_h_i_j_k_l_m_n_o_p-q_r_s_t_u_v_w_x_y_z._
-    pUnit.assertEqual('Check all special char', tRenObj.replaceSpecial(tInput[tTest]), tOutput[tTest], tTest);
+    pUnit.assertEqual('Check all special char', tRenObj.replaceSpecial(tIn), tOut, 'tr1.4');
 
-    tTest = 'tr1.5';
-    tInput[tTest] = '@@a-foo)';
-    tOutput[tTest] = 'a-foo';
-    pUnit.assertEqual('Fix leading and trailing special char', tRenObj.replaceSpecial(tInput[tTest]), tOutput[tTest], tTest);
+    tIn = '@@a-foo)';
+    tOut = 'a-foo';
+    pUnit.assertEqual('Fix leading and trailing special char', tRenObj.replaceSpecial(tIn), tOut, 'tr1.5');
 
-    tTest = 'tr1.6';
-    tInput[tTest] = '@@a - b also- / -(xxy).foo';
-    tOutput[tTest] = 'a-b_also-xxy.foo';
-    pUnit.assertEqual('Fix middle mess-1', tRenObj.replaceSpecial(tInput[tTest]), tOutput[tTest], tTest);
+    tIn = '@@a - b also- / -(xxy).foo';
+    tOut = 'a-b_also-xxy.foo';
+    pUnit.assertEqual('Fix middle mess-1', tRenObj.replaceSpecial(tIn), tOut, 'tr1.6');
 
-    tTest = 'tr1.7';
-    tInput[tTest] = '@@a - b a___l---s...o- / -(xxy).foo';
-    tOutput[tTest] = 'a-b_a_l-s.o-xxy.foo';
-    pUnit.assertEqual('Fix middle mess-2', tRenObj.replaceSpecial(tInput[tTest]), tOutput[tTest], tTest);
+    tIn = '@@a - b a___l---s...o- / -(xxy).foo';
+    tOut = 'a-b_a_l-s.o-xxy.foo';
+    pUnit.assertEqual('Fix middle mess-2', tRenObj.replaceSpecial(tIn), tOut, 'tr1.7');
 
-    tTest = 'tr1.8';
-    tInput[tTest] = 'a--_--b-_c_-d_-_-e';
-    tOutput[tTest] = 'a-b-c_d-e';
-    pUnit.assertEqual('More fix middle mess-3', tRenObj.replaceSpecial(tInput[tTest]), tOutput[tTest], tTest);
+    tIn = 'a--_--b-_c_-d_-_-e';
+    tOut = 'a-b-c_d-e';
+    pUnit.assertEqual('More fix middle mess-3', tRenObj.replaceSpecial(tIn), tOut, 'tr1.8');
   }
-  pTest.addTest(testReplace_1);
-
-  // ------
-  function testReplace_2() {
-    pUnit.assertEqual('These should be equal', 5, 5, 'tr2.1');
-  }
-  pTest.addTest(testReplace_2);
 } // replaceSmokeUnit
 
-// ---------------------
+/** ----------------------
+ * @function Test replacing many strings.
+ */
 function replaceTestManyUnit(pTest, pUnit) {
   // ------
+  pTest.addTest(testReplaceMany);
   function testReplaceMany() {
     let tRenObj = new RenameFiles({ logName: 'RenameList', test: true });
+    // {'ExpectedOutput': 'Input', ...}
     let tList = {
       '1-PRELUDE-It_s_Just_There_by_Many_of_One_Jazz_Band-jazzicalmusic.com.mp3':
         '1 - PRELUDE - It\'s Just There by Many of One Jazz Band - jazzicalmusic.com.mp3',
@@ -498,10 +605,12 @@ function replaceTestManyUnit(pTest, pUnit) {
       pUnit.assertEqual('replace', tRenObj.replaceSpecial(tList[tExpect]), tExpect, 'trm.' + i);
     }
   }
-  pTest.addTest(testReplaceMany);
 
+  // ------
+  pTest.addTest(testReplaceManyTmp);
   function testReplaceManyTmp() {
     let tRenObj = new RenameFiles({ logName: 'RenameList', test: true });
+    // {'ExpectedOutput': 'Input', ...}
     let tExpectList = {
       'test-tmp':
         'test-tmp',
@@ -541,13 +650,14 @@ function replaceTestManyUnit(pTest, pUnit) {
       pUnit.assertEqual('replace', tRenObj.replaceSpecial(tExpectList[tExpect]), tExpect, 'trmt-' + i);
     }
   }
-  pTest.addTest(testReplaceManyTmp);
-
 } // replaceTestManyUnit
 
-// ---------------------
+/** ----------------------
+ * @function Test getConfig
+ */
 function checkConfigUnit(pTest, pUnit) {
   // --------
+  pTest.addTest(testValidatePass);
   function testValidatePass() {
     let tRenObj = new RenameFiles({ logName: 'RenameList', test: true });
 
@@ -563,10 +673,10 @@ function checkConfigUnit(pTest, pUnit) {
       tValues[tRenObj.uiMap['empty1'].index] = [tFalse[i]];
       pUnit.assertFalse('Test _verifyTF', tRenObj._verifyTF('empty1', tValues), 'tvpf' + i);
     }
-  }
-  pTest.addTest(testValidatePass);
+  } // testValidatePass
 
   // --------
+  pTest.addTest(testValidateFail);
   function testValidateFail() {
     let tRenObj = new RenameFiles({ logName: 'RenameList', test: true });
 
@@ -587,10 +697,10 @@ function checkConfigUnit(pTest, pUnit) {
         }
       }
     }
-  }
-  pTest.addTest(testValidateFail);
+  } // testValidateFail
 
   // --------
+  pTest.addTest(testGetConfig);
   function testGetConfig() {
     let tRenObj = new RenameFiles({ logName: 'RenameList', test: true });
     // Set to false so you can watch the UI change on Interface sheet
@@ -635,15 +745,15 @@ function checkConfigUnit(pTest, pUnit) {
     }
     setDefaults(tRenObj);
     tRenObj._getConfig();
-  }
-  pTest.addTest(testGetConfig);
-} // testGetConfig
+  } // testGetConfig
+} // checkConfigUnit
 
-// ---------------------
+/** ----------------------
+ * @function Test getFile functionality.
+ */
 function getFilesUnit(pTest, pUnit) {
-  let tTest;
-
   // ------
+  pTest.addTest(testGetFiles);
   function testGetFiles() {
     let tRenObj = new RenameFiles({ logName: 'RenameList', test: true });
     let tSetup = setupTestFolders({ obj: tRenObj });
@@ -692,10 +802,10 @@ function getFilesUnit(pTest, pUnit) {
     pUnit.assertStrNotContains('Get folders and files.', tGot, 'L2_H_DF_DE', 'tgf4.8');
     pUnit.assertStrNotContains('Get folders and files.', tGot, 'L2_T_UG.we', 'tgf4.9');
     pUnit.assertStrNotContains('Get folders and files.', tGot, 'L2_a_lkj_569_l_j', 'tgf4.10');
-  }
-  pTest.addTest(testGetFiles);
+  } // testGetFiles
 
   // ------
+  pTest.addTest(testGetRecurse1);
   function testGetRecurse1() {
     let tRenObj = new RenameFiles({ logName: 'RenameList', test: true });
     let tSetup = setupTestFolders({ obj: tRenObj });
@@ -765,10 +875,10 @@ function getFilesUnit(pTest, pUnit) {
       pTest.debugMsg('tgr1 check: ' + i + ': ' + tExpectList[i]);
       pUnit.assertStrContains('Check for renamed file or folder.', tGot, tExpectList[i], 'tgr1');
     }
-  }
-  pTest.addTest(testGetRecurse1);
+  } // testGetRecurse1
 
   // ------
+  pTest.addTest(testGetRecurse2);
   function testGetRecurse2() {
     let tRenObj = new RenameFiles({ logName: 'RenameList', test: true });
     let tSetup = setupTestFolders({ obj: tRenObj });
@@ -786,12 +896,15 @@ function getFilesUnit(pTest, pUnit) {
       pUnit.assertNotEqual('Only get Diff.', tRenObj.list[i][2], tRenObj.list[i][3], 'tgr2.1.' + i)
       pUnit.assertTrue('Only get folders.', tRegEx.test(tRenObj.list[i][3]), 'tgr2.2.' + i);
     }
-  }
-  pTest.addTest(testGetRecurse2);
+  } // testGetRecurse2
 } // getFilesUnit
 
+/** ----------------------
+ * @function Test getFiles from a UI perspective.
+ */
 function getFilesUiUnit(pTest, pUnit) {
   // ------
+  pTest.addTest(getFilesUi_1);
   function getFilesUi_1() {
     let tRenObj = new RenameFiles({ logName: 'RenameList', test: true });
     let tSetup = setupTestFolders({ obj: tRenObj });
@@ -817,16 +930,16 @@ function getFilesUiUnit(pTest, pUnit) {
     ];
     let tExpectFlat = tExpect.flat(1);
     //console.info(tExpectFlat);
-
     pUnit.assertArrayEqual('Check default Ui get files list.', tValuesFlat, tExpectFlat, 'gfu1')
-  }
-  pTest.addTest(getFilesUi_1);
-
+  } // getFilesUi_1
 } // getFilesUiUnit
 
-
+/** ----------------------
+ * @function Test RenameList
+ */
 function renameFilesUnit(pTest, pUnit) {
   // ------
+  pTest.addTest(renameFiles_1);
   function renameFiles_1() {
     let tExpectIdList = [];
     let tExpectList = [];
@@ -868,10 +981,10 @@ function renameFilesUnit(pTest, pUnit) {
     tRenObj = menuGetList();
     //console.info(tRenObj.list);
     pUnit.assertEqual('Should find no files.', tRenObj.error.code, 'empty-list', 'rfu3');
-  }
-  pTest.addTest(renameFiles_1);
+  } // renameFiles_1
 
   // ------
+  pTest.addTest(renameFiles_2);
   function renameFiles_2() {
     let tExpectIdList = [];
     let tExpectList = [];
@@ -908,12 +1021,15 @@ function renameFilesUnit(pTest, pUnit) {
       tExpectYes = tExpectList[tRow][tColMap.Renamed];
       pUnit.assertEqual('', tExpectYes, 'yes', 'rfu2.2-row-' + tRow + 2); //DIFF
     }
-  }
-  pTest.addTest(renameFiles_2);
+  } // renameFiles_2
 } // renameFilesUnit
 
+/** ----------------------
+ * @function Test UndoList
+ */
 function undoFilesUnit(pTest, pUnit) {
   // ------
+  pTest.addTest(undoFiles_1);
   function undoFiles_1() {
     let tExpectIdList = [];
     let tExpectList = [];
@@ -951,10 +1067,10 @@ function undoFilesUnit(pTest, pUnit) {
       tExpectYes = tExpectList[tRow][tColMap.Renamed];
       pUnit.assertEqual('', tExpectYes, 'no', 'ufu1.2-row-' + tRow + 2);      //DIFF
     }
-  }
-  pTest.addTest(undoFiles_1);
+  } // undoFiles_1
 
   // ------
+  pTest.addTest(undoFiles_2);
   function undoFiles_2() {
     let tExpectIdList = [];
     let tExpectList = [];
@@ -993,86 +1109,4 @@ function undoFilesUnit(pTest, pUnit) {
       pUnit.assertEqual('', tExpectYes, 'no', 'ufu2.2-row-' + tRow + 2); //DIFF
     }
   }
-  pTest.addTest(undoFiles_2);
 } // undoFilesUnit
-
-// ======================================
-// Run Unit Tests
-
-// ---------------------
-function runCleanup() {
-  let testF = new TestSetup();
-  testF.delTestFolder();
-} // runCleanup
-
-// ---------------------
-function runAllTests() {
-  let tSetup = new TestSetup();
-  if (tSetup.exists)
-    tSetup.delTestFolder();
-  runTests([makeClassUnit, replaceSmokeUnit, replaceTestManyUnit, checkConfigUnit, getFilesUnit,
-    getFilesUiUnit, renameFilesUnit, undoFilesUnit])
-}
-
-// ---------------------
-function runMakeClass() {
-  runTests([makeClassUnit]);
-}
-
-// ---------------------
-function runReplaceSmokeTest() {
-  runTests([replaceSmokeUnit]);
-}
-
-// ---------------------
-function runReplaceTestMany() {
-  runTests([replaceTestManyUnit]);
-}
-
-function runCheckConfig() {
-  runTests([checkConfigUnit]);
-}
-
-// ---------------------
-function runGetFilesTest() {
-  runTests([getFilesUnit]);
-}
-
-function runGetFilesUi() {
-  runTests([getFilesUiUnit]);
-}
-
-
-function runRenameFiles() {
-  runTests([renameFilesUnit]);
-}
-
-function runUndoFiles() {
-  runTests([undoFilesUnit]);
-}
-
-
-// --------------------------------------------------------
-function runTests(pTestFun = []) {
-  /**
-   * @param {array} pTestFun array of test functions
-   */
-  console.time('runTests');
-  var tUnit = new GsUnit({ name: 'base', debug: false });
-  let tRun = new RunTests({ name: "TestReplace", debug: false, gsunit: tUnit });
-  tRun.debug = false;
-  tRun.showPass = true;
-  tRun.showInConsole = true;
-  tRun.showToast = false;
-  tRun.showInSheet = true;
-  tRun.showResults = true;
-
-  //tRun._selectSheet();
-  tRun.resetTests();
-  for (let tTest of pTestFun)
-    tTest(tRun, tUnit);
-  tRun.runTests();
-
-  //tRun.testResults();
-  console.timeEnd('runTests');
-}

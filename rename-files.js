@@ -1,7 +1,7 @@
 /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/rename-files.js,v $
- * @copyright $Date: 2021/02/25 02:59:57 $ UTC
- * @version $Revision: 1.25 $
+ * @copyright $Date: 2021/02/25 07:15:51 $ UTC
+ * @version $Revision: 1.26 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * If testing:
@@ -113,7 +113,7 @@ class RenameFiles {
       throw new Exception('The "' + this.sheetUI + '" sheet is missing! It must be restored.', 'fatal-error')
 
     this.uiInfo = {
-      version: { cell: 'A2', index: 0, type: 's', value: '$Revision: 1.25 $' },
+      version: { cell: 'A2', index: 0, type: 's', value: '$Revision: 1.26 $' },
       topFolderName: { cell: 'D3', index: 0, type: 's', value: '' },
     };
     this.uiRange = { cell: 'B3:B13' };
