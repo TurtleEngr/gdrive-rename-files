@@ -1,7 +1,7 @@
 /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/test-rename-files.js,v $
- * @copyright $Date: 2021/02/25 07:15:51 $ UTC
- * @version $Revision: 1.6 $
+ * @copyright $Date: 2021/03/03 04:01:47 $ UTC
+ * @version $Revision: 1.7 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * @requires gsunit-test.gs
@@ -80,31 +80,43 @@ function runMakeClass() {
 
 /** ----------------------
  * @function Verify the Replace method is working OK.
- */function runReplaceSmokeTest() {
+ */
+function runReplaceSmokeTest() {
   runTests([replaceSmokeUnit]);
 }
 
 /** ----------------------
  * @function Replace a lot of names.
- */function runReplaceTestMany() {
+ */
+function runReplaceTestMany() {
   runTests([replaceTestManyUnit]);
 }
 
 /** ----------------------
  * @function Verify the getConfig is working for all pass/fail checks
- */function runCheckConfig() {
+ */
+function runCheckConfig() {
   runTests([checkConfigUnit]);
 }
 
 /** ----------------------
  * @function Verify GetFiles is functional.
- */function runGetFilesTest() {
+ */
+function runGetFilesTest() {
   runTests([getFilesUnit]);
 }
 
 /** ----------------------
+ * @function Verify GetFiles works for edge cases.
+ */
+function runGetFilesTest2() {
+  runTests([getFilesUnit2]);
+}
+
+/** ----------------------
  * @function Verify the GetFiles UI is working.
- */function runGetFilesUi() {
+ */
+function runGetFilesUi() {
   runTests([getFilesUiUnit]);
 }
 
@@ -130,7 +142,7 @@ function runTests(pTestFun = []) {
   console.time('runTests');
 
   var tUnit = new GsUnit({ name: 'base', debug: false });
-  
+
   let tRun = new RunTests({ name: "TestReplace", debug: false, gsunit: tUnit });
   tRun.debug = false;
   tRun.showPass = true;
@@ -160,7 +172,7 @@ function runTests(pTestFun = []) {
  */
 class TestSetup {
   constructor(pArg = {}) {
-    
+
     this.name = pArg.name == undefined ? 'test-tmp' : pArg.name;  // Top folder name SS directory
     this.size = pArg.size == undefined ? 'large' : pArg.size;    // Number of nested folder/files
     this.debug = pArg.debug == undefined ? false : pArg.debug;    // Useful to debugging the structure
@@ -199,8 +211,18 @@ class TestSetup {
         [
           { type: 'file', name: 'L1^bar', parent: this.name },
           { type: 'file', name: 'L1:foo', parent: this.name },
+          { type: 'file', name: 'L1_this_is_OK', parent: this.name },
+          { type: 'file', name: 'L1_this_is_also_ok', parent: this.name },
           [
             { type: 'folder', name: 'L1 One', parent: this.name },
+          ],
+          [
+            { type: 'folder', name: 'L1_this_folder-is-OK', parent: this.name },
+            { type: 'file', name: 'L2 uyi dg', parent: 'L1_this_folder-is-OK' },
+            [
+              { type: 'folder', name: 'L3h(lf)%jsi.foox ', parent: 'L1_this_folder-is-OK' },
+              { type: 'file', name: 'L4 sjkl46j*^JH^H\(', parent: 'L3h(lf)%jsi.foox ' },
+            ],
           ],
           [
             { type: 'folder', name: 'L1 three', parent: this.name },
@@ -208,6 +230,8 @@ class TestSetup {
           [
             { type: 'folder', name: 'L1 Two', parent: this.name },
             { type: 'file', name: '%*FYE $d ..L2 dg', parent: 'L1 Two' },
+            { type: 'file', name: 'L2 file with lots of spaces', parent: 'L1 Two' },
+
           ],
         ],
       medium:
@@ -342,7 +366,7 @@ class TestSetup {
     console.info('Moved folder ' + this.name + ' to trash.');
     this.ss.toast('Moved folder ' + this.name + ' to trash.', 'Notice', 30);
   } // delTestFolder
-  
+
   /** ----------------------
    * @method Add the folders specified with this.size and this.name
    */
@@ -417,7 +441,7 @@ function setDefaults(pRenObj) {
   let tDefaultValues = [];
   for (let tKey in pRenObj.uiMap)
     tDefaultValues.push([pRenObj.uiMap[tKey].value]);
-  pRenObj.stu.getRange(pRenObj.uiRange.cell).setBackground('white').setValues(tDefaultValues);
+  pRenObj.stu.getRange(pRenObj.uiRange.cell).setValues(tDefaultValues).setBackground('white');
 } // setDefaults
 
 /** ----------------------
@@ -898,6 +922,32 @@ function getFilesUnit(pTest, pUnit) {
     }
   } // testGetRecurse2
 } // getFilesUnit
+
+/** ----------------------
+ * @function Test getFile functionality.
+ */
+function getFilesUnit2(pTest, pUnit) {
+  // ------
+  pTest.addTest(testGetSomeFiles);
+  function testGetSomeFiles() {
+    let tRenObj = new RenameFiles({ logName: 'RenameList', test: true });
+    let tSetup = setupTestFolders({ obj: tRenObj, size: 'small', reset: true });
+
+    tRenObj.list = [];
+    tRenObj.level = 10;
+    tRenObj.getFiles = true;
+    tRenObj.getFolders = true;
+    tRenObj.rename = false;
+    tRenObj.onlyShowDiff = false;
+    tRenObj.getFolderList();
+    let tRange = tRenObj.list;
+    console.info(tRange);
+    let tExpect = '0,test-tmp/,L1:foo,L1_foo,0,test-tmp/,L1^bar,L1_bar';
+    let tRemoveHyperLink = /,=HYPERLINK\([^)]*\)/g;
+    let tGot = tRange.toString().replace(tRemoveHyperLink, '');
+    pUnit.assertEqual('getFiles Output', tGot, tExpect, 'tgsf1');
+  } // testGetSomeFiles
+} // getFilesUnit2
 
 /** ----------------------
  * @function Test getFiles from a UI perspective.

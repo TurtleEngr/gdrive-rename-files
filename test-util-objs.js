@@ -1,7 +1,7 @@
 /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/test-util-objs.js,v $
- * @copyright $Date: 2021/03/04 09:15:07 $ UTC
- * @version $Revision: 1.1 $
+ * @copyright $Date: 2021/03/10 18:47:54 $ UTC
+ * @version $Revision: 1.2 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * @requires gsunit-test.gs
@@ -71,8 +71,8 @@ function runCleanup() {
 } // runCleanup
 
 function runAllTests() {
-  let tSetup = new TestSetup();
-  runTests([defUnitUrl2Id, defUnitHyper2Id, defUnitReplaceSpecial, defUnitReplaceMany])
+  runTests([defUnitUrl2Id, defUnitHyper2Id, defUnitReplaceSpecial, defUnitReplaceMany,
+   defUnitSelectSheet, defUnitException, defUnitCreateFolderFiles, defUnitWalkFolderFiles]);
 }
 
 function runTestUrl2Id() {
@@ -85,6 +85,22 @@ function runTestHyper2Id() {
 
 function runTestReplaceSpecial() {
   runTests([defUnitReplaceSpecial, defUnitReplaceMany]);
+}
+
+function runTestSelectSheet() {
+  runTests([defUnitSelectSheet]);
+}
+
+function runTestException() {
+  runTests([defUnitException]);
+}
+
+function runTestCreateFolderFiles() {
+  runTests([defUnitCreateFolderFiles]);
+}
+
+function runTestGetFolderFiles() {
+  runTests([defUnitWalkFolderFiles]);
 }
 
 // ==============================================
@@ -110,7 +126,7 @@ function defUnitUrl2Id(pTest, pUnit) {
   // ------
   pTest.addTest(unitUrl2Id_fail);
   function unitUrl2Id_fail() {
-    let e = pUnit.assertThrow('Expect a throw.', fUrl2Id.bind(null,[3,4]), 'u2if-1');
+    let e = pUnit.assertThrow('Expect a throw.', fUrl2Id.bind(null, [3, 4]), 'u2if-1');
     pUnit.assertTrue('', e instanceof SyntaxError, 'u2if-2')
     pUnit.assertEqual('', e.message, 'Expected a string.', 'u2if-3');
     pUnit.assertEqual('', e.name, 'SyntaxError', 'u2if-4');
@@ -118,7 +134,7 @@ function defUnitUrl2Id(pTest, pUnit) {
     e = pUnit.assertThrow('Expect a throw for empty.', fUrl2Id.bind(null, 'https://'), 'u2if-5');
     pUnit.assertTrue('', e instanceof Error, 'u2if-6')
     pUnit.assertEqual('', e.message, 'Invalid Id. Empty', 'u2if-7');
-    
+
     let tShortId = '1p7YY3_t9RDwjVInORTRuDYzZP1'
     e = pUnit.assertThrow('Expect a throw for too short.', fUrl2Id.bind(null, tShortId), 'u2if-8');
     pUnit.assertTrue('', e instanceof Error, 'u2if-9')
@@ -150,7 +166,7 @@ function defUnitHyper2Id(pTest, pUnit) {
     let tInput_2 = '=HYPERLINK("https://drive.google.com/drive/folders/1jmmhsZ881wpjgza44D3-MtxhQ0Rz2RxN", "https://foo.bar Id fdgdf dfgdf dfgdf f/")';
     let tInput_3 = '=HYPERLINK("https://drive.google.com/drive/folders/xjmmhsZ881wpjgza44D3-MtxhQ0Rz2RxN", "Id")';
 
-    let e = pUnit.assertThrow('Expect a throw.', fHyper2Id.bind(null,[3,4]), 'h2if-1');
+    let e = pUnit.assertThrow('Expect a throw.', fHyper2Id.bind(null, [3, 4]), 'h2if-1');
     pUnit.assertTrue('', e instanceof SyntaxError, 'h2if-2')
     pUnit.assertEqual('', e.message, 'Expected a string.', 'h2if-3');
     pUnit.assertEqual('', e.name, 'SyntaxError', 'h2if-4');
@@ -327,3 +343,278 @@ function defUnitReplaceMany(pTest, pUnit) {
     }
   }
 } // defUnitReplaceMany
+
+function defUnitSelectSheet(pTest, pUnit) {
+  // ------
+  pTest.addTest(unitSelectSheet_pass);
+  function unitSelectSheet_pass() {
+    let tName = 'newTestSheet';
+    let tSS = SpreadsheetApp.getActiveSpreadsheet();
+
+    let st = fSelectSheet(tSS, tName);
+    pUnit.assertNotNull('Get a new sheet', st, 'ssp-1')
+    pUnit.assertEqual('Check the Sheet name', st.getName(), tName, 'ssp-2');
+    pUnit.assertNotNull('Select existing sheet', st, 'ssp-3')
+    pUnit.assertEqual('Check the Sheet name', st.getName(), tName, 'ssp-4');
+    tSS.deleteSheet(st);
+  }
+
+  // ------
+  pTest.addTest(unitSelectSheet_fail);
+  function unitSelectSheet_fail() {
+    let tName = 'newTestSheet';
+
+    let e = pUnit.assertThrow('No SS passed', fSelectSheet.bind(null, null, tName), 'ssf-1');
+    pUnit.assertTrue('', e instanceof Exception, 'ssf-2')
+    pUnit.assertEqual('', e.name, 'Exception', 'ssf-3');
+    pUnit.assertEqual('', e.code, 'ss-error', 'ssf-4');
+    pUnit.assertEqual('', e.message, 'There is no active SpreadSheet', 'ssf-5');
+
+  }
+} // defUnitSelectSheet
+
+function defUnitException(pTest, pUnit) {
+  // ------
+  pTest.addTest(unitException_pass);
+  function unitException_pass() {
+    try {
+      throw new Exception('Message Text', 'Code', 'Num')
+    } catch (e) {
+      pUnit.assertTrue('', e instanceof Exception, 'ep-1')
+      pUnit.assertEqual('', e.name, 'Exception', 'ep-2');
+      pUnit.assertEqual('', e.code, 'Code', 'ep-3');
+      pUnit.assertEqual('', e.num, 'Num', 'ep-4');
+      pUnit.assertEqual('', e.message, 'Message Text', 'ep-5');
+      pUnit.assertEqual('', e.toString(), 'Exception: Message Text (Code)[Num]', 'ep-6');
+    }
+
+    try {
+      throw new Exception('Message Text', '', 'Num')
+    } catch (e) {
+      pUnit.assertTrue('', e instanceof Exception, 'ep-7')
+      pUnit.assertEqual('', e.name, 'Exception', 'ep-8');
+      pUnit.assertEqual('', e.code, '', 'ep-9');
+      pUnit.assertEqual('', e.num, 'Num', 'ep-10');
+      pUnit.assertEqual('', e.toString(), 'Exception: Message Text [Num]', 'ep-11');
+    }
+
+    try {
+      throw new Exception('Message Text', 'Code', '')
+    } catch (e) {
+      pUnit.assertTrue('', e instanceof Exception, 'ep-12')
+      pUnit.assertEqual('', e.name, 'Exception', 'ep-13');
+      pUnit.assertEqual('', e.code, 'Code', 'ep-14');
+      pUnit.assertEqual('', e.num, '', 'ep-15');
+      pUnit.assertEqual('', e.toString(), 'Exception: Message Text (Code)', 'ep-16');
+    }
+
+  }
+}
+
+function defUnitCreateFolderFiles(pTest, pUnit) {
+  function getListOfNames(pHandleList) {
+    let tList = '';
+    for (let tHandle of pHandleList)
+      tList += tHandle.getName() + ',';
+    return tList;
+  }
+
+  // ------
+  pTest.addTest(unitCreateFolderFile_pass);
+  function unitCreateFolderFile_pass() {
+    let tName = 'tmp-folders';
+    let tTop = new CreateFolderFiles({ name: tName, size: 'simple', debug: true });
+    if (tTop.exists)
+      tTop.delTestFolder();
+
+    pUnit.assertFalse('Check not exist.', tTop.exists, 'cffp-1');
+
+    tTop.addTestFolder();
+    pUnit.assertTrue('Check exist.', tTop.exists, 'cffp-2');
+    pUnit.assertEqual('Check top folder name.', tTop.testFolder.getName(), tName, 'cffp-3');
+    pUnit.assertEqual('Check count.', tTop.list.length, 9, 'cffp-4');
+
+    let tNameList = getListOfNames(tTop.list);
+    pUnit.assertEqual('Check names.', tNameList, 'folder1,file1,folder2,file2,file3,folder3,folder4,folder5,file4,', 'cffp-5');
+
+    tTop.delTestFolder();
+  }
+
+  // ------
+  pTest.addTest(unitCreateFolderFile_pass2);
+  function unitCreateFolderFile_pass2() {
+    let tName = 'tmp-custom';
+    let tMap = [
+      { type: 'file', name: '1-file1', parent: 'tmp-custom' },
+      [
+        { type: 'folder', name: '2-folder1', parent: 'tmp-custom' },
+        { type: 'file', name: '2-file2', parent: '2-folder1' },
+        [
+          { type: 'folder', name: '3-folder2', parent: '2-folder1' },
+          { type: 'file', name: '3-file3', parent: '3-folder2' },
+        ],
+        { type: 'file', name: '2-file4', parent: '2-folder1' },
+      ],
+    ];
+
+    let tTop = new CreateFolderFiles({ name: tName, custom: tMap, debug: true })
+    if (tTop.exists)
+      tTop.delTestFolder();
+
+    pUnit.assertEqual('Check size.', tTop.size, 'custom', 'cffp2-2');
+
+    tTop.addTestFolder();
+    let tNameList = getListOfNames(tTop.list);
+    pUnit.assertEqual('Check names.', tNameList, '1-file1,2-folder1,2-file2,3-folder2,3-file3,2-file4,', 'cffp2-3');
+
+    tTop.delTestFolder();
+  }
+
+  // ------
+  pTest.addTest(unitCreateFolderFile_fail);
+  function unitCreateFolderFile_fail() {
+    let tName = 'tmp-custom';
+    let tMap = [
+      { type: 'file', name: '1-file1', parent: 'tmp-custom' },
+      [
+        { type: 'folder', name: '2-folder1', parent: 'tmp-custom' },
+        { type: 'file', name: '2-file2', parent: 'xxx2-folder1xxx' },
+        [
+          { type: 'folder', name: '3-folder2', parent: '2-folder1' },
+          { type: 'file', name: '3-file3', parent: '3-folder2' },
+        ],
+        { type: 'file', name: '2-file4', parent: '2-folder1' },
+      ],
+    ];
+
+    let tTop = new CreateFolderFiles({ name: tName, custom: tMap, debug: true })
+    if (tTop.exists)
+      tTop.delTestFolder();
+
+    let e = pUnit.assertThrow('Expect bad parent error', tTop.addTestFolder, 'cfff-1');
+    pUnit.assertEqual('Check return error', e.message, 'Bad structure. Expected: "2-folder1"', 'cfff-2');
+    tTop.delTestFolder();
+  }
+}
+
+class TestGetList {
+  constructor() {
+    this.list = [];
+  }
+
+  reset() {
+    this.list = [];
+  }
+
+  processFile(pArg = {element: null, level: 0}) {
+    if (pArg.element == null)
+      throw new SyntaxError('Missing file handle.');
+    if (pArg.level <= 0)
+      throw new SyntaxError('Invalid level: ' + pArg.level);
+    let tRow = [
+        pArg.level,
+        pArg.element.getParents().next().getName() + '/',
+        pArg.element.getName(),
+      ];
+    this.list.push(tRow);
+  }
+  
+  processFolder(pArg = {element: null, level: 0}) {
+    if (pArg.element == null)
+      throw new SyntaxError('Missing folder handle.');
+    if (pArg.level <= 0)
+      throw new SyntaxError('Invalid level: ' + pArg.level);
+    let tRow = [
+        pArg.level,
+        pArg.element.getParents().next().getName() + '/',
+        pArg.element.getName() + '/',
+      ];
+    this.list.push(tRow);    
+  }
+} // TestGetList
+
+function defUnitWalkFolderFiles(pTest, pUnit) {
+// ------
+  pTest.addTest(unitWalkFolderFiles_pass1);
+  function unitWalkFolderFiles_pass1() {
+    let tDebug = false;
+    let tName = 'tmp-folders';
+    let tTestStruct = new CreateFolderFiles({ name: tName, size: 'simple', debug: tDebug });
+    if (tTestStruct.exists && !tDebug)
+      tTestStruct.delTestFolder()
+    tTestStruct.addTestFolder();
+    let tTop = tTestStruct.testFolder;
+    pUnit.assertEqual('topFolder is set.', tTop.getName(), tName, 'wffp1-1')
+
+    let tGetList = new TestGetList();
+    pUnit.assertTrue('GetList.processFile is defined.', typeof tGetList.processFile == 'function', 'wffp1-2');
+    pUnit.assertTrue('GetList.processFolder is defined.', typeof tGetList.processFolder == 'function', 'wffp1-3');
+
+    let tGetFolderFiles = new WalkFolderFiles({ topFolder: tTop, collectObj: tGetList });
+    pUnit.assertNotNull('Create WalkFolderFiles obj.', tGetFolderFiles, 'wffp1-4');
+    pUnit.assertEqual('maxLevel is set.', tGetFolderFiles.maxLevel, 1, 'wffp1-5')
+    pUnit.assertEqual('incFiles is set.', tGetFolderFiles.incFiles, true, 'wffp1-6')
+    pUnit.assertEqual('debug is set.', tGetFolderFiles.debug, false, 'wffp1-7')
+    pUnit.assertEqual('collectObj is set.', tGetFolderFiles.collectObj, tGetList, 'wffp1-8')
+    pUnit.assertEqual('topFolder is set.', tGetFolderFiles.topFolder, tTop, 'wffp1-9')
+
+    tGetFolderFiles.incFiles = false;
+    tGetFolderFiles.start();
+    if (tDebug) console.info(tGetList.list);
+    pUnit.assertEqual('Expected first folder', tGetList.list[0][2], 'folder3/', 'wffp1-10');
+    pUnit.assertEqual('Expected first folder', tGetList.list[1][2], 'folder1/', 'wffp1-11');
+
+    tGetList.reset();
+    pUnit.assertEqual('Expect empty list', tGetList.list.length, 0, 'wffp1-12');
+    tGetFolderFiles.incFiles = true;
+    tGetFolderFiles.start();
+    if (tDebug) console.info(tGetList.list);
+    pUnit.assertEqual('Expected first file', tGetList.list[0][2], 'file4', 'wffp1-13');
+
+    tGetFolderFiles.maxLevel = 10;
+    tGetFolderFiles.incFiles = true;
+    tGetList.reset();
+    tGetFolderFiles.start();
+    if (tDebug) console.info(tGetList.list);
+    /* Expect:
+      [ [ 1, 'tmp-folders/', 'file4' ],
+      [ 1, 'tmp-folders/', 'folder3/' ],
+      [ 2, 'folder3/', 'folder4/' ],
+      [ 3, 'folder4/', 'folder5/' ],
+      [ 1, 'tmp-folders/', 'folder1/' ],
+      [ 2, 'folder1/', 'file3' ],
+      [ 2, 'folder1/', 'file1' ],
+      [ 2, 'folder1/', 'folder2/' ],
+      [ 3, 'folder2/', 'file2' ] ]
+    */
+    pUnit.assertEqual('', tGetList.list[0][0], 1, 'wffp2-1');
+    pUnit.assertEqual('', tGetList.list[0][2], 'file4', 'wffp2-2');
+
+    pUnit.assertEqual('', tGetList.list[1][0], 1, 'wffp2-3');
+    pUnit.assertEqual('', tGetList.list[1][2], 'folder3/', 'wffp2-4');
+
+    pUnit.assertEqual('', tGetList.list[2][0], 2, 'wffp2-5');
+    pUnit.assertEqual('', tGetList.list[2][2], 'folder4/', 'wffp2-6');
+
+    pUnit.assertEqual('', tGetList.list[3][0], 3, 'wffp2-7');
+    pUnit.assertEqual('', tGetList.list[3][2], 'folder5/', 'wffp2-8');
+
+    pUnit.assertEqual('', tGetList.list[4][0], 1, 'wffp2-9');
+    pUnit.assertEqual('', tGetList.list[4][2], 'folder1/', 'wffp2-10');
+
+    pUnit.assertEqual('', tGetList.list[5][0], 2, 'wffp2-11');
+    pUnit.assertEqual('', tGetList.list[5][2], 'file3', 'wffp2-12');
+
+    pUnit.assertEqual('', tGetList.list[6][0], 2, 'wffp2-13');
+    pUnit.assertEqual('', tGetList.list[6][2], 'file1', 'wffp2-14');
+
+    pUnit.assertEqual('', tGetList.list[7][0], 2, 'wffp2-15');
+    pUnit.assertEqual('', tGetList.list[7][2], 'folder2/', 'wffp2-16');
+
+    pUnit.assertEqual('', tGetList.list[8][0], 3, 'wffp2-17');
+    pUnit.assertEqual('', tGetList.list[8][2], 'file2', 'wffp2-18');
+
+    if (tTestStruct.exists && !tDebug)
+      tTestStruct.delTestFolder()
+  }
+}

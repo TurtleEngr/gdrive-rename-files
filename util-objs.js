@@ -1,7 +1,7 @@
-/**
+ /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/util-objs.js,v $
- * @copyright $Date: 2021/03/04 09:15:07 $ UTC
- * @version $Revision: 1.1 $
+ * @copyright $Date: 2021/03/10 18:47:54 $ UTC
+ * @version $Revision: 1.2 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * If testing:
@@ -64,9 +64,9 @@ function fUrl2Id(pUrl) {
   if (pUrl.length == 0)
     throw new Error('Invalid Id. Empty');
   if (pUrl.length != 33)
-    throw new Error('Invalid Id. Id must be 33 char long');
+    throw new Error('Invalid Id. Id must be 33 char long'); // don't depend on this
   if (pUrl[0] != '1')
-    throw new Error('Invalid Id. Id must begin with 1')
+    throw new Error('Invalid Id. Id must begin with 1'); // don't depend on this
   return pUrl;
 }
 
@@ -85,15 +85,15 @@ function fHyper2Id(pHyper) {
 }
 
 
-  /**
-   * @param {string} pStr
-   * @return {string} Replace all special char with '_'
-   * Allowed: a-zA-Z0-9._-
-   * Repeated [._-] chars are removed, until only one of these remain.
-   * [._-] cannot be at beginning or end of string, remove
-   * [_-] cannot be before or after '.'
-   */
-  function replaceSpecial(pStr) {
+/**
+ * @param {string} pStr
+ * @return {string} Replace all special char with '_'
+ * Allowed: a-zA-Z0-9._-
+ * Repeated [._-] chars are removed, until only one of these remain.
+ * [._-] cannot be at beginning or end of string, remove
+ * [_-] cannot be before or after '.'
+ */
+function replaceSpecial(pStr) {
   let regEx = /./;
   //let tResultNew = regReplace(pStr, regEx = /[^a-zA-Z0-9_.-]+/g, '_');
   let tResultNew = pStr.replace(regEx = /[^a-zA-Z0-9_.-]+/g, '_');
@@ -132,24 +132,26 @@ function fHyper2Id(pHyper) {
 } // replaceSpecial
 
 /**
- * @private
+ * @function
+ * @param {obj} pSS - spreadsheet handle
  * @param {string} pName - sheet name
- * @example let st = tRename.createSheet('foo');
+ * @return {obj} the active sheet
+ * @throws Exception 'ss-error'
+ * @example let st = fSelectSheet('foo');
  */
-function _selectSheet(pName) {
-  try {
-    let st = this.ss.getSheetByName(pName);
-    if (st == null)
-      st = this.ss.insertSheet(pName);
-    if (st == null)
-      throw new Exception('Cannot create or select sheet: "' + pName + '"',
-        'ss-error', 'selectSheet');
-    st.activate();
-    return st;
-  } catch (e) {
-    throw e;
-  }
-} // _selectSheet
+function fSelectSheet(pSS, pName) {
+  if (pSS == null)
+    throw new Exception('There is no active SpreadSheet',
+      'ss-error', 'fSelectSheet');
+  let st = pSS.getSheetByName(pName);
+  if (st == null)
+    st = pSS.insertSheet(pName);
+  if (st == null)
+    throw new Exception('Cannot create or select sheet: "' + pName + '"',
+      'ss-error', 'fSelectSheet');
+  st.activate();
+  return st;
+} // fSelectSheet
 
 // ==============================================
 // Classes
@@ -184,9 +186,8 @@ class Exception extends Error {
  * @description Test with the simple structure. With debug==true, the output can be quickly verified.
  * @example tTestDirs = TestSetup({size: 'simple', debug: true});
  */
-class TestSetup {
+class CreateFolderFiles {
   constructor(pArg = {}) {
-
     this.name = pArg.name == undefined ? 'test-tmp' : pArg.name;  // Top folder name SS directory
     this.size = pArg.size == undefined ? 'large' : pArg.size;    // Number of nested folder/files
     this.debug = pArg.debug == undefined ? false : pArg.debug;    // Useful to debugging the structure
@@ -200,11 +201,13 @@ class TestSetup {
     this.testFolder = this.exists ? this.parentFolder.getFoldersByName(this.name).next() : null;
     this.testURL = this.exists ? this.testFolder.getUrl() : '';
 
+    this.list = [];
+
     this.structure = {
       simple:
         [
           [
-            { type: 'folder', name: 'folder1', parent: 'test-tmp' },
+            { type: 'folder', name: 'folder1', parent: this.name },
             { type: 'file', name: 'file1', parent: 'folder1' },
             [
               { type: 'folder', name: 'folder2', parent: 'folder1' },
@@ -213,13 +216,13 @@ class TestSetup {
             { type: 'file', name: 'file3', parent: 'folder1' },
           ],
           [
-            { type: 'folder', name: 'folder3', parent: 'test-tmp' },
+            { type: 'folder', name: 'folder3', parent: this.name },
             [
               { type: 'folder', name: 'folder4', parent: 'folder3' },
               { type: 'folder', name: 'folder5', parent: 'folder4' },
             ],
           ],
-          { type: 'file', name: 'file4', parent: 'test-tmp' },
+          { type: 'file', name: 'file4', parent: this.name },
         ],
       small:
         [
@@ -361,6 +364,16 @@ class TestSetup {
           ],
         ]
     }
+
+    if (pArg.custom != undefined) {
+      this.structure['custom'] = pArg.custom;
+      this.size = 'custom';
+    }
+
+    /*
+     * This makes the "asserThrow" work.
+     */
+    this.addTestFolder = this.addTestFolder.bind(this);
   } // constructor
 
   /** ----------------------
@@ -368,16 +381,15 @@ class TestSetup {
    */
   delTestFolder() {
     if (!this.exists) {
-      console.warn('Folder "' + this.name + '" does not exist.');
+      if (this.debug) console.warn('Folder "' + this.name + '" does not exist.');
       return;
     }
-    if (!this.debug) {
-      this.testFolder.setTrashed(true);
-      this.exists = false;
-      this.testFolder = null;
-      this.testURL = '';
-    }
-    console.info('Moved folder ' + this.name + ' to trash.');
+    this.testFolder.setTrashed(true);
+    this.exists = false;
+    this.testFolder = null;
+    this.testURL = '';
+    this.list = [];
+    if (this.debug) console.info('Moved folder ' + this.name + ' to trash.');
     this.ss.toast('Moved folder ' + this.name + ' to trash.', 'Notice', 30);
   } // delTestFolder
 
@@ -391,7 +403,7 @@ class TestSetup {
         return this.testURL;
       }
       console.time('addTestFolders');
-      console.info('Creating: ' + this.name + ' size=' + this.size);
+      if (this.debug) console.info('Creating: ' + this.name + ' size=' + this.size);
       this.testFolder = this.parentFolder.createFolder(this.name);
       this.testURL = this.testFolder.getUrl();
       this.exists = true;
@@ -399,7 +411,7 @@ class TestSetup {
       console.timeEnd('addTestFolders');
       return this.testURL;
     } catch (e) {
-      console.error(e.stack);
+      if (this.deb) console.error(e.stack);
       throw e;
     }
   } // addTestFolder
@@ -430,112 +442,74 @@ class TestSetup {
       if (pEl.type === '')
         throw new Error('Internal Error: missing type.');
       if (pEl.parent != undefined && pEl.parent !== pFolderName)
-        throw new SyntaxError('Bad structure. Expected: "' + pEl.parent + '"');
+        throw new SyntaxError('Bad structure. Expected: "' + pFolderName + '"');
     }
   } // _processElement
 
   _createFolder(pEl, pFolderName, pFolder) {
-    console.info('Create folder: "' + pEl.name + '" in "' + pFolderName + '"');
+    if (this.debug) console.info('Create folder: "' + pEl.name + '" in "' + pFolderName + '"');
     pFolder = pFolder.createFolder(pEl.name);
+    this.list.push(pFolder);
     pFolderName = pEl.name;
     return { pFolderName, pFolder };
   }
 
   _createFile(pEl, pFolderName, pFolder) {
-    console.info('Create file: "' + pEl.name + '" in "' + pFolderName + '"');
-    pFolder.createFile(pEl.name, 'content');
+    if (this.debug) console.info('Create file: "' + pEl.name + '" in "' + pFolderName + '"');
+    this.list.push(pFolder.createFile(pEl.name, 'content'));
     return { pFolderName, pFolder };
   }
-} // TestSetup
+} // CreateFolderFiles
 
 /** ----------------------
  * @class
- * @classdesc Create test directory structure.
- * @param {obj} pArg = {name: 'test-tmp', size: 'large', debug: false}
- * @description Test with the simple structure. With debug==true, the output can be quickly verified.
- * @example tTestDirs = TestSetup({size: 'simple', debug: true});
+ * @classdesc Walk a folder/file structure.
+ * @param {obj} pArg = {topFolder: {obj}, collectObj: {obj}, 
+ *    maxLevel: 1, incFiles: true, debug: false}
+ * @throws topFolder not found
+ * @throws collectObj not defined
+ * @throws processFile or processFolder methods are not implemented on collectObj
+ * @description Given the topFolder handle, walk across and down the folders(depth first).
+ *  For each folder,
+ *    call collectObj.processFolder. Stop when at maxLevel. If incFiles, 
+ *    call collectObj.processFile, for each file in the current folder. 
+ * @example tGetFolderFiles = new WalkFolderFiles({ topFolder: DriveApp.getFolderById(tId), 
+ *    incFiles: true, collectObj: tGetList });
+ * 
+ * collectObj implements these callBack methods:
+ *  pCollectObj.processFile(pArg = { element: {obj}, level: {num} });
+ *  pCollectObj.processFolder(pArg = { element: {obj}, level: {num} });
  */
-class walkFolderFiles {
-  /** ---------------------
-   * @method Get all the files in the folder (if showFiles).
-   *  Create the row entry and push it to this.list.
-   * @param {obj} pFolder
-   */
-  getFileList(pFolder = this.topFolder) {
-    if (pFolder == null)
-      throw new Error('this.topFolder is not set.');
-    let tFile = null;
-    let tRow = [];
-    let tName = '';
-    let tNewName = '';
+class WalkFolderFiles {
+  constructor(pArg = {}) {
+    this.topFolder = pArg.topFolder;
+    this.collectObj = pArg.collectObj;
+    this.maxLevel = pArg.maxLevel == undefined ? 1 : pArg.maxLevel;
+    this.incFiles = pArg.incFiles == undefined ? true : pArg.maxLevel;
+    this.debug = pArg.debug == undefined ? false : pArg.maxLevel;
+  }
 
-    let tParentName = pFolder.getName();
+  start() {
+    this._walkFolders(this.topFolder, 1);
+  }
 
-    let tFileList = pFolder.getFiles();
-    while (tFileList.hasNext()) {
-      tFile = tFileList.next();
-      tName = tFile.getName();
-      tNewName = tName;
-      if (this.rename)
-        tNewName = this.replaceSpecial(tName);
-      if (this.rename && this.onlyShowDiff && tNewName == tName)
-        continue;
-      tRow = [
-        this.level,
-        tParentName + '/',
-        tName,
-        tNewName,
-        '=HYPERLINK("' + tFile.getUrl() + '", "Id")',
-      ];
-      this.list.push(tRow);
-    }
-  } // getFileList
-
-  /** ---------------------
-   * @method Get all the folders in the folder.
-   * If showFolder, create the row entry and push it to this.list.
-   * @param {obj} pFolder
-   */
-  getFolderList(pFolder = this.topFolder) {
-    if (pFolder == null)
-      throw new Error('this.topFolder is not set.');
-    if (pFolder === this.topFolder) {
-      this.list = [];
-      this.level = 0;
-    }
-    let tFolder = null;
-    let tRow = [];
-    let tName = '';
-    let tNewName = '';
-
-    ++this.level;
-    let tParentName = pFolder.getName();
-    if (this.getFiles)
-      this.getFileList(pFolder);
-
-    let tFolderList = pFolder.getFolders();
-    while (tFolderList.hasNext()) {
-      tFolder = tFolderList.next();
-      if (this.getFolders) {
-        tName = tFolder.getName();
-        tNewName = tName;
-        if (this.rename)
-          tNewName = this.replaceSpecial(tName);
-        if (!(this.rename && this.onlyShowDiff && tNewName != tName)) {
-          tRow = [
-            this.level,
-            tParentName + '/',
-            tName + '/',
-            tNewName + '/',
-            '=HYPERLINK("' + tFolder.getUrl() + '", "Id")',
-          ];
-          this.list.push(tRow);
-        }
-      }
-      if (this.level < this.levelLimit) {
-        this.getFolderList(tFolder);
-        --this.level;
+  _walkFolders(pFolder, pLevel) {
+    if (this.incFiles) {
+      let tFiles = pFolder.getFiles();
+      while (tFiles.hasNext()) {
+        let tFile = tFiles.next();
+        if (this.debug) console.info('Got file: ' + tFile.getName());
+        this.collectObj.processFile({ element: tFile, level: pLevel });
       }
     }
-  } // getFolderList
-} // walkFolderFiles
+
+    let tFolders = pFolder.getFolders();
+    while (tFolders.hasNext()) {
+      pFolder = tFolders.next();
+      if (this.debug) console.info('Got folder: ' + pFolder.getName());
+      this.collectObj.processFolder({ element: pFolder, level: pLevel });
+      if (pLevel < this.maxLevel)
+        this._walkFolders(pFolder, pLevel + 1);
+    }
+  }
+} // WalkFolderFiles

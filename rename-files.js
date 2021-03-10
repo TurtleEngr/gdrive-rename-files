@@ -1,7 +1,8 @@
 /**
+ * test
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/rename-files.js,v $
- * @copyright $Date: 2021/02/25 07:15:51 $ UTC
- * @version $Revision: 1.26 $
+ * @copyright $Date: 2021/03/03 04:01:47 $ UTC
+ * @version $Revision: 1.27 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * If testing:
@@ -113,7 +114,7 @@ class RenameFiles {
       throw new Exception('The "' + this.sheetUI + '" sheet is missing! It must be restored.', 'fatal-error')
 
     this.uiInfo = {
-      version: { cell: 'A2', index: 0, type: 's', value: '$Revision: 1.26 $' },
+      version: { cell: 'A2', index: 0, type: 's', value: '$Revision: 1.27 $' },
       topFolderName: { cell: 'D3', index: 0, type: 's', value: '' },
     };
     this.uiRange = { cell: 'B3:B13' };
@@ -393,11 +394,10 @@ class RenameFiles {
       tFile = tFileList.next();
       tName = tFile.getName();
       tNewName = tName;
-      if (this.rename) {
+      if (this.rename)
         tNewName = this.replaceSpecial(tName);
-        if (this.onlyShowDiff && tNewName == tName)
+      if (this.rename && this.onlyShowDiff && tNewName == tName)
           continue;
-      }
       tRow = [
         this.level,
         tParentName + '/',
@@ -437,11 +437,10 @@ class RenameFiles {
       if (this.getFolders) {
         tName = tFolder.getName();
         tNewName = tName;
-        if (this.rename) {
+        if (this.rename)
           tNewName = this.replaceSpecial(tName);
-          if (this.onlyShowDiff && tNewName == tName)
-            continue;
-        }
+        if (this.rename && this.onlyShowDiff && tNewName != tName)
+          continue;
         tRow = [
           this.level,
           tParentName + '/',
