@@ -1,7 +1,7 @@
- /**
+/**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/util-objs.js,v $
- * @copyright $Date: 2021/03/10 18:47:54 $ UTC
- * @version $Revision: 1.2 $
+ * @copyright $Date: 2021/03/11 02:46:04 $ UTC
+ * @version $Revision: 1.3 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * If testing:
@@ -12,13 +12,13 @@
  *  pName       - a parameter passed into a function
  *  pArg={}     - pass args *in any order* and to set default values for any arg
  *  tName       - a variable that is local to a function
- *  obj.name    - a class variable that a user can usually get (careful with set, it could damage the object)
+ *  obj.name    - a class variable that a user can usually "get" or "set"
  *  obj._name   - a class variable that is assumed to be private (do not depend on it)
  *  obj.name()  - a class method
- *  _name()     - a function in a method that is assumed to be private (do not depend on it)
- *  obj.uiName() - this method is probably called by a menuName() function
+ *  _name()     - a function or method that is assumed to be private (do not depend on it)
+ *  obj.uiName()- this method is probably called by a menuName() function
  *  menuName()  - a menu item is usually bound to these functions, and they call obj.uiName() methods
- *  name()      - usually a global function
+ *  fName()     - usually a global function
  */
 
 /* ToDo List
@@ -47,47 +47,90 @@ function onOpen(e) {
 // Functions
 
 /**
- * @function
- * @return Return just the Id part of a gdrive URL. See also: _hyper2Id()
+ * @returns Return just the Id part of a gdrive URL. See also: fHyper2Id()
+ * @throw SyntaxError, Error, Exception
+ * Exception.code an Exception.num can be used to ignore the exceptions. See fUrl2Id()
  */
-function fUrl2Id(pUrl) {
+function fUrl2IdStrict(pUrl) {
   if (typeof pUrl != 'string')
     throw new SyntaxError('Expected a string.');
 
   // Remove URL part of id
   // https://docs.google.com/spreadsheets/d/abc1234567/edit#gid=0
-  let tRmSuffix = /\/(edit|view).*$/;   // Remove any char after last /edit or /view if they exist
-  pUrl = pUrl.replace(tRmSuffix, '');
-  let tRmPath = /.*\//g;                // Remove all before id part
-  pUrl = pUrl.replace(tRmPath, '');
+  let tRmSuffixAfterId = /\/(edit|view).*$/;
+  pUrl = pUrl.replace(tRmSuffixAfterId, '');
+  let tRmPathBeforeId = /.*\//g;
+  pUrl = pUrl.replace(tRmPathBeforeId, '');
 
-  if (pUrl.length == 0)
-    throw new Error('Invalid Id. Empty');
-  if (pUrl.length != 33)
-    throw new Error('Invalid Id. Id must be 33 char long'); // don't depend on this
-  if (pUrl[0] != '1')
-    throw new Error('Invalid Id. Id must begin with 1'); // don't depend on this
+  _validateResult(); // this could change
   return pUrl;
-}
+
+  function _validateResult() {
+    if (pUrl.length == 0)
+      throw new Error('Invalid Id. Empty');
+    if (pUrl.length != 33)
+      throw new Exception('Invalid Id. Id should be 33 char long', 'length-problem', pUrl); // this could change
+    if (pUrl[0] != '1')
+      throw new Exception('Invalid Id. Id should begin with 1', 'prefix-problem', pUrl);
+  }
+} // fUrl2IdStrict
 
 /**
- * @private
- * @method Return Id after removing hyperlink and URL part.
+ * @param {string} pUrl 
+ * @returns gdrive Id
+ * @throws SyntaxError, Error
+ * This calls fUrl2IdStrict, but it removes the Exceptions that could change in the future.
  */
-function fHyper2Id(pHyper) {
+function fUrl2Id(pUrl) {
+  try {
+    return fUrl2IdStrict(pUrl);
+  } catch (e) {
+    if (e instanceof Exception && (e.code == 'length-problem' || e.code == 'prefix-problem')) {
+      console.warn(e.toString());
+      return e.num;
+    } else {
+      throw e;
+    }
+  }
+} // fUrl2Id
+
+/**
+ * @param {string} pHyper
+ * @returns gdrive Id
+ * @throws SyntaxError, Error, Exception
+ */
+function fHyper2IdStrict(pHyper) {
   if (typeof pHyper != 'string')
     throw new SyntaxError('Expected a string.');
   // =HYPERLINK("https://drive.google.com/drive/folders/1jmmhsZ881wpjgza44D3-MtxhQ0Rz2RxN", "Id")
-  let tRmHyper = /.*HYPERLINK\(\"/;
-  pHyper = pHyper.replace(tRmHyper, '');
-  let tCleanEnd = /\",.*\)$/;
-  return fUrl2Id(pHyper.replace(tCleanEnd, ''));
-}
+  let tRmHyperPrefix = /.*HYPERLINK\(\"/;
+  pHyper = pHyper.replace(tRmHyperPrefix, '');
+  let tRmTitlePart = /\",.*\)$/;
+  return fUrl2IdStrict(pHyper.replace(tRmTitlePart, ''));
+} // fHyper2IdStrict
 
+/**
+ * @param {string} pHyper 
+ * @returns gdrive Id
+ * @throws SyntaxEror, Error
+ * This calls fHyper2IdStrict, but it removes the Exceptions that could change in the future.
+ */
+function fHyper2Id(pHyper) {
+  try {
+    return fHyper2IdStrict(pHyper);
+  } catch (e) {
+    if (e instanceof Exception && (e.code == 'length-problem' || e.code == 'prefix-problem')) {
+      console.warn(e.toString());
+      return e.num;
+    } else {
+      throw e;
+    }
+  }
+} // fHyper2Id
 
 /**
  * @param {string} pStr
- * @return {string} Replace all special char with '_'
+ * @returns {string} Replace all special char with '_'
  * Allowed: a-zA-Z0-9._-
  * Repeated [._-] chars are removed, until only one of these remain.
  * [._-] cannot be at beginning or end of string, remove
@@ -95,7 +138,6 @@ function fHyper2Id(pHyper) {
  */
 function replaceSpecial(pStr) {
   let regEx = /./;
-  //let tResultNew = regReplace(pStr, regEx = /[^a-zA-Z0-9_.-]+/g, '_');
   let tResultNew = pStr.replace(regEx = /[^a-zA-Z0-9_.-]+/g, '_');
   let tResult = '';
   let tLimit = 5; // Just to be safe
@@ -106,7 +148,11 @@ function replaceSpecial(pStr) {
       throw new Error('Possible infinite loop.');
     }
     tResult = tResultNew;
+    _replaceOddPatterns();
+  }
+  return tResultNew;
 
+  function _replaceOddPatterns() {
     // Don't begin or end with these chars
     tResultNew = tResultNew.replace(regEx = /^[._-]+/, '');
     tResultNew = tResultNew.replace(regEx = /[._-]+$/, '');
@@ -128,29 +174,39 @@ function replaceSpecial(pStr) {
     tResultNew = tResultNew.replace(regEx = /-+/g, '-');
     tResultNew = tResultNew.replace(regEx = /[.]+/g, '.');
   }
-  return tResultNew;
 } // replaceSpecial
 
 /**
- * @function
  * @param {obj} pSS - spreadsheet handle
  * @param {string} pName - sheet name
- * @return {obj} the active sheet
+ * @returns {obj} the active sheet
  * @throws Exception 'ss-error'
  * @example let st = fSelectSheet('foo');
  */
 function fSelectSheet(pSS, pName) {
-  if (pSS == null)
-    throw new Exception('There is no active SpreadSheet',
-      'ss-error', 'fSelectSheet');
+  _validateParams(pSS, pName);
   let st = pSS.getSheetByName(pName);
   if (st == null)
     st = pSS.insertSheet(pName);
-  if (st == null)
-    throw new Exception('Cannot create or select sheet: "' + pName + '"',
-      'ss-error', 'fSelectSheet');
+  _validateResult(st, pName);
   st.activate();
   return st;
+
+  function _validateParams(pSS, pName) {
+    if (pSS == null)
+      throw new Exception('There is no active SpreadSheet',
+        'ss-error', 'fSelectSheet');
+    if (typeof pName != 'string')
+      throw new SyntaxError('Name is not a string.');
+    if (pName == '')
+      throw SyntaxError('Name is empty.');
+  }
+
+  function _validateResult(pSt, pName) {
+    if (pSt == null)
+      throw new Exception('Cannot create or select sheet: "' + pName + '"',
+        'ss-error', 'fSelectSheet');
+  }
 } // fSelectSheet
 
 // ==============================================
@@ -371,7 +427,7 @@ class CreateFolderFiles {
     }
 
     /*
-     * This makes the "asserThrow" work.
+     * This makes the "asserThrow" work for testing.
      */
     this.addTestFolder = this.addTestFolder.bind(this);
   } // constructor
@@ -487,6 +543,11 @@ class WalkFolderFiles {
     this.maxLevel = pArg.maxLevel == undefined ? 1 : pArg.maxLevel;
     this.incFiles = pArg.incFiles == undefined ? true : pArg.maxLevel;
     this.debug = pArg.debug == undefined ? false : pArg.maxLevel;
+
+    if (typeof this.collectObj.processFile != 'function')
+      throw new SyntaxError('processFile is missing from Collection obj');
+    if (typeof this.collectObj.processFolder != 'function')
+      throw new SyntaxError('processFolder is missing from Collection object.');
   }
 
   start() {
@@ -494,22 +555,28 @@ class WalkFolderFiles {
   }
 
   _walkFolders(pFolder, pLevel) {
-    if (this.incFiles) {
-      let tFiles = pFolder.getFiles();
-      while (tFiles.hasNext()) {
-        let tFile = tFiles.next();
-        if (this.debug) console.info('Got file: ' + tFile.getName());
-        this.collectObj.processFile({ element: tFile, level: pLevel });
-      }
-    }
+    if (this.incFiles)
+      this._getFiles(pFolder, pLevel);
+    pFolder = this._getFolders(pFolder.getFolders(), pFolder, pLevel);
+  }
 
-    let tFolders = pFolder.getFolders();
-    while (tFolders.hasNext()) {
-      pFolder = tFolders.next();
+  _getFiles(pFolder, pLevel) {
+    let tFiles = pFolder.getFiles();
+    while (tFiles.hasNext()) {
+      let tFile = tFiles.next();
+      if (this.debug) console.info('Got file: ' + tFile.getName());
+      this.collectObj.processFile({ element: tFile, level: pLevel });
+    }
+  }
+
+  _getFolders(pFolderList, pFolder, pLevel) {
+    while (pFolderList.hasNext()) {
+      pFolder = pFolderList.next();
       if (this.debug) console.info('Got folder: ' + pFolder.getName());
       this.collectObj.processFolder({ element: pFolder, level: pLevel });
       if (pLevel < this.maxLevel)
         this._walkFolders(pFolder, pLevel + 1);
     }
+    return pFolder;
   }
 } // WalkFolderFiles
