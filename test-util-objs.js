@@ -1,7 +1,7 @@
 /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/test-util-objs.js,v $
- * @copyright $Date: 2021/03/11 02:46:04 $ UTC
- * @version $Revision: 1.3 $
+ * @copyright $Date: 2021/03/13 17:47:40 $ UTC
+ * @version $Revision: 1.5 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * @requires gsunit-test.gs
@@ -28,8 +28,29 @@
  */
 'use strict';
 
+
 // ==============================================
 // Define menus
+
+/*
+  // Uncomment this if testing standalone
+  function onOpen(e) {
+    try {
+      let ui = SpreadsheetApp.getUi();
+      let menu = ui.createMenu('Tests')
+        .addItem('RunAll Tests', 'runAllTests')
+      if (typeof menuTestUtilObjs === 'function')
+        menu = menuTestUtilObjs(ui, menu);
+      if (typeof menuGsUnitTest === 'function')
+        menu = menuGsUnitTest(pUi, pMenu);
+      menu.addToUi();
+    } catch (e) {
+      console.error('InternalError');
+      console.error(e.stack);
+      throw e;
+    }
+  }
+*/
 
 /** ----------------------
  * @function This is called by the "top" onOpen menu function.
@@ -39,11 +60,16 @@
 function menuTestUtilObjs(pUi, pMenu) {
   pMenu = pMenu.addSeparator()
     .addSubMenu(pUi.createMenu('TestUtilObjs')
-      .addItem('Clean Up', 'runCleanup')
+      .addItem('Clean Up Util Tests', 'runUtilCleanup')
+      .addItem('Run All UtilObj tests', 'runAllUtilTests')
       .addItem('Test Url2Id', 'runTestUrl2Id')
+      .addItem('Test Hyper2Id', 'runTestHyper2Id')
+      .addItem('Test ReplaceSpecial', 'runTestReplaceSpecial')
+      .addItem('Test SelectSheet', 'runTestSelectSheet')
+      .addItem('Test Exception', 'runTestException')
+      .addItem('Test CreateFolderFiles', 'runTestCreateFolderFiles')
+      .addItem('Test GetFolderFiles', 'runTestGetFolderFiles')
     );
-  if (typeof menuGsUnitTest === 'function')
-    pMenu = menuGsUnitTest(pUi, pMenu);
   return pMenu;
 }
 
@@ -56,7 +82,7 @@ function menuTestUtilObjs(pUi, pMenu) {
  * @function Run the tests specified with the below functions.
  * @param {array} pTestFun - this will be one or more function names.
  */
-function runTests(pTestFun = []) {
+function runUtilTests(pTestFun = []) {
   console.time('runTests');
   var tUnit = new GsUnit({ name: 'base', debug: false });
   let tRun = new RunTests({ name: "TestUtilObjs", debug: false, gsunit: tUnit });
@@ -75,45 +101,80 @@ function runTests(pTestFun = []) {
   console.timeEnd('runTests');
 } // runTests
 
-function runCleanup() {
+function runUtilCleanup() {
 } // runCleanup
 
-function runAllTests() {
-  runTests([defUnitUrl2Id, defUnitHyper2Id, defUnitReplaceSpecial, defUnitReplaceMany,
+function runAllUtilTests() {
+  runUtilTests([defUnitUrl2Id, defUnitHyper2Id, defUnitReplaceSpecial, defUnitReplaceMany,
     defUnitSelectSheet, defUnitException, defUnitCreateFolderFiles, defUnitWalkFolderFiles]);
 }
 
 function runTestUrl2Id() {
-  runTests([defUnitUrl2Id]);
+  runUtilTests([defUnitUrl2Id]);
 }
 
 function runTestHyper2Id() {
-  runTests([defUnitHyper2Id]);
+  runUtilTests([defUnitHyper2Id]);
 }
 
 function runTestReplaceSpecial() {
-  runTests([defUnitReplaceSpecial, defUnitReplaceMany]);
+  runUtilTests([defUnitReplaceSpecial, defUnitReplaceMany]);
 }
 
 function runTestSelectSheet() {
-  runTests([defUnitSelectSheet]);
+  runUtilTests([defUnitSelectSheet]);
 }
 
 function runTestException() {
-  runTests([defUnitException]);
+  runUtilTests([defUnitException]);
 }
 
 function runTestCreateFolderFiles() {
-  runTests([defUnitCreateFolderFiles]);
+  runUtilTests([defUnitCreateFolderFiles]);
 }
 
 function runTestGetFolderFiles() {
-  runTests([defUnitWalkFolderFiles]);
+  runUtilTests([defUnitWalkFolderFiles]);
 }
 
 // ==============================================
 // Support functions for the Unit Tests
 
+class TestGetList {
+  constructor() {
+    this.list = [];
+  }
+
+  reset() {
+    this.list = [];
+  }
+
+  processFile(pArg = {}) {
+    if (fDefault(pArg.element, null) == null)
+      throw new SyntaxError('Missing file handle.');
+    if (fDefault(pArg.level, 0) <= 0)
+      throw new SyntaxError('Invalid level: ' + pArg.level);
+    let tRow = [
+      pArg.level,
+      pArg.element.getParents().next().getName() + '/',
+      pArg.element.getName(),
+    ];
+    this.list.push(tRow);
+  }
+
+  processFolder(pArg = {}) {
+    if (fDefault(pArg.element, null) == null)
+      throw new SyntaxError('Missing folder handle.');
+    if (fDefault(pArg.level, 0) <= 0)
+      throw new SyntaxError('Invalid level: ' + pArg.level);
+    let tRow = [
+      pArg.level,
+      pArg.element.getParents().next().getName() + '/',
+      pArg.element.getName() + '/',
+    ];
+    this.list.push(tRow);
+  }
+} // TestGetList
 
 // ==============================================
 // Define the Unit Tests
@@ -258,36 +319,36 @@ function defUnitReplaceSpecial(pTest, pUnit) {
 
     tIn = 'a#A@@cde-fg.hi_jk';
     tOut = 'a_A_cde-fg.hi_jk';
-    pUnit.assertEqual('replace non-alphanum', replaceSpecial(tIn), tOut, 'tr1.1');
+    pUnit.assertEqual('replace non-alphanum', fReplaceSpecial(tIn), tOut, 'tr1.1');
 
     tIn = 'a#A@@cde-fg.hi_jk^l99!!8.foo';
     tOut = 'a_A_cde-fg.hi_jk_l99_8.foo';
-    pUnit.assertEqual('replace non-alphanum', replaceSpecial(tIn), tOut, 'tr1.2');
+    pUnit.assertEqual('replace non-alphanum', fReplaceSpecial(tIn), tOut, 'tr1.2');
 
     tIn = 'a\\b\'c\"d\(e\)f&g';
     tOut = 'a_b_c_d_e_f_g';
-    pUnit.assertEqual('replace escaped char', replaceSpecial(tIn), tOut, 'tr1.3');
+    pUnit.assertEqual('replace escaped char', fReplaceSpecial(tIn), tOut, 'tr1.3');
 
     tIn = 'a\\b\'c\"d!e@f#g$h%i^j&k*l(m)n_o+p-q=r[s]t{u}v|w;x:y,z.< >/?';
     tOut = 'a_b_c_d_e_f_g_h_i_j_k_l_m_n_o_p-q_r_s_t_u_v_w_x_y_z';
     //                a_b_c_d_e_f_g_h_i_j_k_l_m_n_o_p-q_r_s_t_u_v_w_x_y_z._
-    pUnit.assertEqual('Check all special char', replaceSpecial(tIn), tOut, 'tr1.4');
+    pUnit.assertEqual('Check all special char', fReplaceSpecial(tIn), tOut, 'tr1.4');
 
     tIn = '@@a-foo)';
     tOut = 'a-foo';
-    pUnit.assertEqual('Fix leading and trailing special char', replaceSpecial(tIn), tOut, 'tr1.5');
+    pUnit.assertEqual('Fix leading and trailing special char', fReplaceSpecial(tIn), tOut, 'tr1.5');
 
     tIn = '@@a - b also- / -(xxy).foo';
     tOut = 'a-b_also-xxy.foo';
-    pUnit.assertEqual('Fix middle mess-1', replaceSpecial(tIn), tOut, 'tr1.6');
+    pUnit.assertEqual('Fix middle mess-1', fReplaceSpecial(tIn), tOut, 'tr1.6');
 
     tIn = '@@a - b a___l---s...o- / -(xxy).foo';
     tOut = 'a-b_a_l-s.o-xxy.foo';
-    pUnit.assertEqual('Fix middle mess-2', replaceSpecial(tIn), tOut, 'tr1.7');
+    pUnit.assertEqual('Fix middle mess-2', fReplaceSpecial(tIn), tOut, 'tr1.7');
 
     tIn = 'a--_--b-_c_-d_-_-e';
     tOut = 'a-b-c_d-e';
-    pUnit.assertEqual('More fix middle mess-3', replaceSpecial(tIn), tOut, 'tr1.8');
+    pUnit.assertEqual('More fix middle mess-3', fReplaceSpecial(tIn), tOut, 'tr1.8');
   }
 } // defUnitReplaceSpecial
 
@@ -364,7 +425,7 @@ function defUnitReplaceMany(pTest, pUnit) {
     let i = 0;
     for (let tExpect in tList) {
       //console.info(++i + " '" + tExpect + "':\n\t'" + tList[tExpect] + "',");
-      pUnit.assertEqual('replace', replaceSpecial(tList[tExpect]), tExpect, 'trm.' + i);
+      pUnit.assertEqual('replace', fReplaceSpecial(tList[tExpect]), tExpect, 'trm.' + i);
     }
   }
 
@@ -406,9 +467,9 @@ function defUnitReplaceMany(pTest, pUnit) {
     }
     let i = 0;
     for (let tExpect in tExpectList) {
-      //console.info(++i + " '" + replaceSpecial(tExpect) + "':\n\t'" + tExpect + "',");
+      //console.info(++i + " '" + fReplaceSpecial(tExpect) + "':\n\t'" + tExpect + "',");
       //console.info(++i + " '" + tExpect + "':\n\t'" + tExpectList[tExpect] + "',");
-      pUnit.assertEqual('replace', replaceSpecial(tExpectList[tExpect]), tExpect, 'trmt-' + i);
+      pUnit.assertEqual('replace', fReplaceSpecial(tExpectList[tExpect]), tExpect, 'trmt-' + i);
     }
   }
 } // defUnitReplaceMany
@@ -501,9 +562,9 @@ function defUnitCreateFolderFiles(pTest, pUnit) {
     tTop.addTestFolder();
     pUnit.assertTrue('Check exist.', tTop.exists, 'cffp-2.1');
     pUnit.assertEqual('Check top folder name.', tTop.testFolder.getName(), tName, 'cffp-2.2');
-    pUnit.assertEqual('Check count.', tTop.list.length, 9, 'cffp-2.3');
+    pUnit.assertEqual('Check count.', tTop.listOfHandles.length, 9, 'cffp-2.3');
 
-    let tNameList = getListOfNames(tTop.list);
+    let tNameList = getListOfNames(tTop.listOfHandles);
     pUnit.assertEqual('Check names.', tNameList, 'folder1,file1,folder2,file2,file3,folder3,folder4,folder5,file4,', 'cffp-3');
 
     tTop.delTestFolder();
@@ -533,7 +594,7 @@ function defUnitCreateFolderFiles(pTest, pUnit) {
     pUnit.assertEqual('Check size.', tTop.size, 'custom', 'cffp2-1');
 
     tTop.addTestFolder();
-    let tNameList = getListOfNames(tTop.list);
+    let tNameList = getListOfNames(tTop.listOfHandles);
     pUnit.assertEqual('Check names.', tNameList, '1-file1,2-folder1,2-file2,3-folder2,3-file3,2-file4,', 'cffp2-2');
 
     tTop.delTestFolder();
@@ -565,42 +626,6 @@ function defUnitCreateFolderFiles(pTest, pUnit) {
     tTop.delTestFolder();
   }
 }
-
-class TestGetList {
-  constructor() {
-    this.list = [];
-  }
-
-  reset() {
-    this.list = [];
-  }
-
-  processFile(pArg = { element: null, level: 0 }) {
-    if (pArg.element == null)
-      throw new SyntaxError('Missing file handle.');
-    if (pArg.level <= 0)
-      throw new SyntaxError('Invalid level: ' + pArg.level);
-    let tRow = [
-      pArg.level,
-      pArg.element.getParents().next().getName() + '/',
-      pArg.element.getName(),
-    ];
-    this.list.push(tRow);
-  }
-
-  processFolder(pArg = { element: null, level: 0 }) {
-    if (pArg.element == null)
-      throw new SyntaxError('Missing folder handle.');
-    if (pArg.level <= 0)
-      throw new SyntaxError('Invalid level: ' + pArg.level);
-    let tRow = [
-      pArg.level,
-      pArg.element.getParents().next().getName() + '/',
-      pArg.element.getName() + '/',
-    ];
-    this.list.push(tRow);
-  }
-} // TestGetList
 
 function defUnitWalkFolderFiles(pTest, pUnit) {
   // ------

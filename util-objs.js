@@ -1,7 +1,7 @@
 /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/util-objs.js,v $
- * @copyright $Date: 2021/03/11 02:46:04 $ UTC
- * @version $Revision: 1.3 $
+ * @copyright $Date: 2021/03/13 17:47:40 $ UTC
+ * @version $Revision: 1.5 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * If testing:
@@ -26,25 +26,16 @@
 'use strict';
 
 // ==============================================
-// Define menus
-
-function onOpen(e) {
-  try {
-    let ui = SpreadsheetApp.getUi();
-    let menu = ui.createMenu('Tests')
-      .addItem('RunAll Tests', 'runAllTests')
-    if (typeof menuTestUtilObjs === 'function')
-      menu = menuTestUtilObjs(ui, menu);
-    menu.addToUi();
-  } catch (e) {
-    console.error('InternalError');
-    console.error(e.stack);
-    throw e;
-  }
-}
-
-// ==============================================
 // Functions
+
+/**
+ * This is a simple way of handling defaults for object params.
+ */
+function fDefault(pArg, pDefault) {
+  if (pArg == 'undefined' || pArg == null || pArg == '')
+    return pDefault;
+  return pArg
+}
 
 /**
  * @returns Return just the Id part of a gdrive URL. See also: fHyper2Id()
@@ -136,7 +127,7 @@ function fHyper2Id(pHyper) {
  * [._-] cannot be at beginning or end of string, remove
  * [_-] cannot be before or after '.'
  */
-function replaceSpecial(pStr) {
+function fReplaceSpecial(pStr) {
   let regEx = /./;
   let tResultNew = pStr.replace(regEx = /[^a-zA-Z0-9_.-]+/g, '_');
   let tResult = '';
@@ -144,9 +135,8 @@ function replaceSpecial(pStr) {
 
   // Loop until there are no differences
   while (tResult != tResultNew) {
-    if (--tLimit <= 0) {
+    if (--tLimit <= 0)
       throw new Error('Possible infinite loop.');
-    }
     tResult = tResultNew;
     _replaceOddPatterns();
   }
@@ -174,7 +164,7 @@ function replaceSpecial(pStr) {
     tResultNew = tResultNew.replace(regEx = /-+/g, '-');
     tResultNew = tResultNew.replace(regEx = /[.]+/g, '.');
   }
-} // replaceSpecial
+} // fReplaceSpecial
 
 /**
  * @param {obj} pSS - spreadsheet handle
@@ -217,6 +207,7 @@ function fSelectSheet(pSS, pName) {
  * @classdesc Used to throw an Exception (non-error)
  * @param {string} pMessage
  * @param {string} pCode
+ * @param {string} pNum
  * @example throw new Exception('Invalid value in cell.', 'ui-error', 'B3');
  * @example catch(e) { this.ui.alert(e.toString()); } - outputs: Invalid value in cell (ui-error)[B3]
  */
@@ -244,20 +235,24 @@ class Exception extends Error {
  */
 class CreateFolderFiles {
   constructor(pArg = {}) {
-    this.name = pArg.name == undefined ? 'test-tmp' : pArg.name;  // Top folder name SS directory
-    this.size = pArg.size == undefined ? 'large' : pArg.size;    // Number of nested folder/files
-    this.debug = pArg.debug == undefined ? false : pArg.debug;    // Useful to debugging the structure
+    this.name = fDefault(pArg.name, 'test-tmp');  // Top folder name SS directory
+    this.size = fDefault(pArg.size, 'large');     // Number of nested folder/files
+    this.debug = fDefault(pArg.debug, false);     // Useful to debugging the structure
 
     this.ss = SpreadsheetApp.getActiveSpreadsheet();
     this.ui = SpreadsheetApp.getUi();
     let tFileInDrive = DriveApp.getFolderById(this.ss.getId()); // Note: this does not work right afer this.ss is set.
     this.parentFolder = tFileInDrive.getParents().next();
 
+    this.testFolder = null;
+    this.testURL = '';
     this.exists = this.parentFolder.getFoldersByName(this.name).hasNext();
-    this.testFolder = this.exists ? this.parentFolder.getFoldersByName(this.name).next() : null;
-    this.testURL = this.exists ? this.testFolder.getUrl() : '';
+    if (this.exists) {
+      this.testFolder = this.parentFolder.getFoldersByName(this.name).next();
+      this.testURL = this.testFolder.getUrl();
+    }
 
-    this.list = [];
+    this.listOfHandles = [];
 
     this.structure = {
       simple:
@@ -427,7 +422,7 @@ class CreateFolderFiles {
     }
 
     /*
-     * This makes the "asserThrow" work for testing.
+     * This makes the "assertThrow" work for testing.
      */
     this.addTestFolder = this.addTestFolder.bind(this);
   } // constructor
@@ -444,7 +439,7 @@ class CreateFolderFiles {
     this.exists = false;
     this.testFolder = null;
     this.testURL = '';
-    this.list = [];
+    this.listOfHandles = [];
     if (this.debug) console.info('Moved folder ' + this.name + ' to trash.');
     this.ss.toast('Moved folder ' + this.name + ' to trash.', 'Notice', 30);
   } // delTestFolder
@@ -458,16 +453,20 @@ class CreateFolderFiles {
         console.warn('Folder ' + this.name + ' already exists. ' + this.testURL);
         return this.testURL;
       }
+
       console.time('addTestFolders');
       if (this.debug) console.info('Creating: ' + this.name + ' size=' + this.size);
       this.testFolder = this.parentFolder.createFolder(this.name);
       this.testURL = this.testFolder.getUrl();
       this.exists = true;
+
       this._walkStructure(this.structure[this.size], this.testFolder, this.name);
       console.timeEnd('addTestFolders');
+
       return this.testURL;
+
     } catch (e) {
-      if (this.deb) console.error(e.stack);
+      if (this.debug) console.error(e.stack);
       throw e;
     }
   } // addTestFolder
@@ -505,14 +504,14 @@ class CreateFolderFiles {
   _createFolder(pEl, pFolderName, pFolder) {
     if (this.debug) console.info('Create folder: "' + pEl.name + '" in "' + pFolderName + '"');
     pFolder = pFolder.createFolder(pEl.name);
-    this.list.push(pFolder);
+    this.listOfHandles.push(pFolder);
     pFolderName = pEl.name;
     return { pFolderName, pFolder };
   }
 
   _createFile(pEl, pFolderName, pFolder) {
     if (this.debug) console.info('Create file: "' + pEl.name + '" in "' + pFolderName + '"');
-    this.list.push(pFolder.createFile(pEl.name, 'content'));
+    this.listOfHandles.push(pFolder.createFile(pEl.name, 'content'));
     return { pFolderName, pFolder };
   }
 } // CreateFolderFiles
@@ -538,19 +537,21 @@ class CreateFolderFiles {
  */
 class WalkFolderFiles {
   constructor(pArg = {}) {
-    this.topFolder = pArg.topFolder;
+    this.topFolder = pArg.topFolder;  // TBD pass to start
     this.collectObj = pArg.collectObj;
-    this.maxLevel = pArg.maxLevel == undefined ? 1 : pArg.maxLevel;
-    this.incFiles = pArg.incFiles == undefined ? true : pArg.maxLevel;
-    this.debug = pArg.debug == undefined ? false : pArg.maxLevel;
+    this.maxLevel = fDefault(pArg.maxLevel, 1);
+    this.incFiles = fDefault(pArg.incFiles, true);
+    this.debug = fDefault(pArg.debug, false);
 
-    if (typeof this.collectObj.processFile != 'function')
+    if (typeof this.collectObj.processFile !== 'function')
       throw new SyntaxError('processFile is missing from Collection obj');
-    if (typeof this.collectObj.processFolder != 'function')
+    if (typeof this.collectObj.processFolder !== 'function')
       throw new SyntaxError('processFolder is missing from Collection object.');
   }
 
   start() {
+    if (this.topFolder == null)
+      throw new Error('The top folder is not set.');
     this._walkFolders(this.topFolder, 1);
   }
 
