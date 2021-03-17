@@ -1,8 +1,7 @@
 /**
- * test
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/rename-files.js,v $
- * @copyright $Date: 2021/03/03 04:01:47 $ UTC
- * @version $Revision: 1.27 $
+ * @copyright $Date: 2021/03/17 07:07:42 $ UTC
+ * @version $Revision: 1.30 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * If testing:
@@ -12,25 +11,47 @@
  *  pName       - a parameter passed into a function
  *  pArg={}     - pass args *in any order* and to set default values for any arg
  *  tName       - a variable that is local to a function
- *  obj.name    - a class variable that a user can usually get (careful with set, it could damage the object)
+ *  obj.name    - a class variable that a user can usually "get" or "set"
  *  obj._name   - a class variable that is assumed to be private (do not depend on it)
  *  obj.name()  - a class method
- *  _name()     - a function in a method that is assumed to be private (do not depend on it)
- *  obj.uiName() - this method is probably called by a menuName() function
+ *  _name()     - a function or method that is assumed to be private (do not depend on it)
+ *  obj.uiName()- this method is probably called by a menuName() function
  *  menuName()  - a menu item is usually bound to these functions, and they call obj.uiName() methods
- *  name()      - usually a global function
+ *  fName()     - usually a global function
  */
 
 /* ToDo List
- * Cleanup duplicate code in RenameFiles and in the Unit Tests. Also refactor messy code.
+ * Refactor messy code - always
  * Implement the Advanced match/replace fields.
+ * Create ui map vars for the RenameList sheet (these are currently hardcoded).
+ * Add filters to limit folders/files listed (allow pattern, exclude pattern ?)
  * Figure out how to "Deploy" the script.
- * Put the code into github with gusuit-test and test-rename-files
  */
 'use strict';
 
 // ==============================================
 // Define menus
+
+function onOpen(e) {
+  try {
+    let ui = SpreadsheetApp.getUi();
+    let menu = ui.createMenu('Rename-Files')
+      .addItem('Get List', 'menuGetList')
+      .addItem('Rename List', 'menuRenameList')
+      .addItem('Undo List', 'menuUndoList')
+    if (typeof menuTestRename === 'function')
+      menu = menuTestRename(ui, menu);
+    if (typeof menuTestUtilObjs === 'function')
+      menu = menuTestUtilObjs(ui, menu);
+    if (typeof menuGsUnitTest === 'function')
+      menu = menuGsUnitTest(ui, menu);
+    menu.addToUi();
+  } catch (e) {
+    console.error('InternalError');
+    console.error(e.stack);
+    throw e;
+  }
+}
 
 function menuGetList() {
   let tRenObj = new RenameFiles({ logName: 'RenameList' });
@@ -50,48 +71,8 @@ function menuUndoList() {
   return tRenObj;
 }
 
-function onOpen(e) {
-  try {
-    let ui = SpreadsheetApp.getUi();
-    let menu = ui.createMenu('Rename-Files')
-      .addItem('Get List', 'menuGetList')
-      .addItem('Rename List', 'menuRenameList')
-      .addItem('Undo List', 'menuUndoList')
-    if (typeof menuTestRename === 'function')
-      menu = menuTestRename(ui, menu);
-    menu.addToUi();
-  } catch (e) {
-    console.error('InternalError');
-    console.error(e.stack);
-    throw e;
-  }
-}
-
 // ==============================================
 // Rename Class and Functions
- 
-/** ---------------------
- * @class
- * @classdesc Used to throw an Exception (non-error)
- * @param {string} pMessage
- * @param {string} pCode
- * @example throw new Exception('Invalid value in cell.', 'ui-error', 'B3');
- * @example catch(e) { this.ui.alert(e.toString()); } - outputs: Invalid value in cell (ui-error)[B3]
- */
-class Exception extends Error {
-  constructor(pMessage, pCode = '', pNum = '') {
-    super(pMessage);
-    this.name = "Exception";
-    this.code = pCode;
-    this.num = pNum;  // Often this will be a cell or cell range string
-  }
-
-  toString() {
-    let tCode = this.code == '' ? '' : '(' + this.code + ')';
-    let tNum = this.num == '' ? '' : '[' + this.num + ']';
-    return this.name + ': ' + this.message + ' ' + tCode + tNum;
-  }
-}
 
 /** ------------------------------------
  * @class
@@ -100,21 +81,35 @@ class Exception extends Error {
  */
 class RenameFiles {
   constructor(pArg = {}) {
-    this.debug = pArg.debug == undefined ? false : pArg.debug;
-    this.test = pArg.test == undefined ? false : pArg.test;  // if true, "test-blocking" UI alerts will not be shown
+    this.debug = fDefault(pArg.debug, false);
+    this.test = fDefault(pArg.test, false);  // if true, "test-blocking" UI alerts will not be shown
     this.email = 'turtle.engr+rename-files@gmail.com';
     this.error = null;  // Error obj
     this.ss = SpreadsheetApp.getActiveSpreadsheet();
     this.ui = SpreadsheetApp.getUi();
-    this.sheetLog = pArg.logName === undefined || pArg.logName == '' ? 'RenameList' : pArg.logName;
-    this.stl = this._selectSheet(this.sheetLog);
-    this.sheetUI = pArg.configName === undefined || pArg.configName == '' ? 'Interface' : pArg.configName;
+    this.sheetLog = fDefault(pArg.logName, 'RenameList');
+    this.stl = fSelectSheet(this.ss, this.sheetLog);
+    this.sheetUI = fDefault(pArg.configName, 'Interface');
     this.stu = this.ss.getSheetByName(this.sheetUI);
     if (this.stu == null)
       throw new Exception('The "' + this.sheetUI + '" sheet is missing! It must be restored.', 'fatal-error')
 
+    // processElement() variables/methods
+    this.list = [];
+    this.parentPath = [];
+    this.count = 0;
+    this.statusCount = 25;
+    this.walkFolders = new WalkFolderFiles({ topFolder: null, collectObj: this, debug: this.debug });
+
+    // These are managed with get/set because they also affect the WalkFolderFiles object
+    this._topFolder = null; // See setTopFolderById
+    this._getFiles = true;
+    this._getFolders = true;
+    this._levelLimit = 1;
+
+    // Interface spreadsheet mapping vars
     this.uiInfo = {
-      version: { cell: 'A2', index: 0, type: 's', value: '$Revision: 1.27 $' },
+      version: { cell: 'A2', index: 0, type: 's', value: '$Revision: 1.30 $' },
       topFolderName: { cell: 'D3', index: 0, type: 's', value: '' },
     };
     this.uiRange = { cell: 'B3:B13' };
@@ -141,41 +136,8 @@ class RenameFiles {
     this.regExMatch = this.uiMap.regExMatch.value;
     this.regExReplace = this.uiMap.regExReplace.value;
 
-    this.topFolder = null;  // See setTopFolderById
-    this.level = 0;         // current recursion level
-    this.replaceLimit = 5;
-    this.list = [];   // This is only set wih getFolderList() and getFileList()
-  }
-
-  /**
-   * @private
-   * @param {string} pName - sheet name
-   * @example let st = tRename.createSheet('foo');
-   */
-  _selectSheet(pName) {
-  
-    try {
-      let st = this.ss.getSheetByName(pName);
-      if (st == null)
-        st = this.ss.insertSheet(pName);
-      if (st == null)
-        throw new Exception('Cannot create or select sheet: "' + pName + '"',
-          'ss-error', 'selectSheet');
-      st.activate();
-      return st;
-    } catch (e) {
-      throw e;
-    }
-  } // _selectSheet
-
-  /** ---------------------
-   * @method Output pMsg to console if this.debug is true
-   * @param {string} pMsg
-   */
-  debugMsg(pMsg) {
-    if (this.debug)
-      console.info('Debug: ' + pMsg);
-  }
+    // RenameList sheet mapping vars (TBD)
+  } // constructor
 
   /** ---------------------
    * @private
@@ -190,9 +152,9 @@ class RenameFiles {
     this.ss.toast(pE.toString(), 'Unexpected ' + pE.name, -1);
     if (this.test)
       throw pE;
+
     tMsg = 'Please copy the following text and email it to ' + this.email + '\n\n' + tMsg;
     this.ui.alert('Unexpected ' + pE.name, tMsg, this.ui.ButtonSet.OK);
-    return;
   } // reportError
 
   /** ---------------------
@@ -203,21 +165,38 @@ class RenameFiles {
     try {
       this.stu.activate();
       let tValues = this.stu.getRange(this.uiRange.cell).setBackground('white').getValues();
-      this.debugMsg(tValues);
+      if (this.debug) console.info(tValues);
 
       this.stu.getRange(this.uiInfo.version.cell).setValue(this.uiInfo.version.value);
       this._setTopFolderById(tValues[this.uiMap.topFolderId.index][0]);
       this.getFolders = this._verifyTF('getFolders', tValues);
       this.getFiles = this._verifyTF('getFiles', tValues);
       this.levelLimit = this._verifyNum('levelLimit', tValues);
+      this.walkFolders.maxLevel = this.levelLimit;
       this.rename = this._verifyTF('rename', tValues);
       this.onlyShowDiff = this._verifyTF('onlyShowDiff', tValues);
       this.saveLog = this._verifyTF('saveLog', tValues);
-      this._showFilesAndFoldersAreNotNo();
     } catch (e) {
-      this._handleConfigError(e);
+      this._handleConfigErrors(e);
     }
   } // getConfig
+
+  /**
+   * @private
+   * @method Handle any errors in getConfig(). 'ui-error' is expected. All others are thrown.
+   */
+  _handleConfigErrors(pE) {
+    this.error = pE;
+    if (pE instanceof Exception) {
+      if (pE.code === 'ui-error') {
+        this.stu.getRange(pE.num).setBackground('#ffbbbb');
+        this.ss.toast('Fix the error highlighted in red.', pE.message + ' at ' + pE.num, -1);
+        throw pE;
+      }
+    }
+    this._reportError(pE);
+    throw pE;
+  }
 
   /**
    * @private
@@ -225,34 +204,16 @@ class RenameFiles {
    */
   _setTopFolderById(pId) {
     try {
-      pId = this._url2Id(pId);
+      pId = fUrl2Id(pId);
       this.topFolder = DriveApp.getFolderById(pId);
       this.uiMap.topFolderId.value = this.topFolder.getUrl();
       this.uiInfo.topFolderName.value = this.topFolder.getName();
+      // Output
       this.stu.getRange(this.uiInfo.topFolderName.cell).setValue(this.uiInfo.topFolderName.value);
     } catch (e) {
-      console.error(e);
       throw new Exception('Top Folder Id not found.', 'ui-error', this.uiMap.topFolderId.cell);
     }
   } // setTopFolderById
-
-  /**
-   * @private
-   * @method Return just the Id part of a gdrive URL. See also: _hyper2Id()
-   */
-  _url2Id(pUrl) {
-    let tHasUrl = /http.*\/\//;
-    if (!tHasUrl.test(pUrl))
-      return pUrl;
-
-    // Remove URL part of id
-    // https://docs.google.com/spreadsheets/d/abc1234567/edit#gid=0
-    let tRmSuffix = /\/(edit|view).*$/;   // Remove any char after last /edit or /view if they exists
-    pUrl = pUrl.replace(tRmSuffix, '');
-    let tRmPath = /.*\//g;                // Remove all before id part
-    pUrl = pUrl.replace(tRmPath, '');
-    return pUrl;
-  }
 
   /**
    * @private
@@ -289,173 +250,90 @@ class RenameFiles {
     return tValue;
   }
 
-  /**
-   * @private
-   * @method Show files and show folders both cannot be 'no'.
-   */
-  _showFilesAndFoldersAreNotNo() {
-    if (!this.getFolders && !this.getFiles)
+  get topFolder() {
+    return this._topFolder;
+  }
+  set topFolder(pFolder) {
+    this._topFolder = pFolder;
+  }
+
+  get getFolders() {
+    return this._getFolders;
+  }
+  set getFolders(pState) {
+    this._getFolders = pState;
+    if (!this._getFiless && !pState)
+      throw new Exception('Nothing will be done, because both are "no".', 'ui-error',
+        this.uiMap.getFolders.cell + ':' + this.uiMap.getFiles.cell);    
+  }
+
+  get getFiles() {
+    return this._getFiles;
+  }
+  set getFiles(pState) {
+    this._getFiles = pState;
+    this.walkFolders.incFiles = pState;
+    if (!this._getFolders && !pState)
       throw new Exception('Nothing will be done, because both are "no".', 'ui-error',
         this.uiMap.getFolders.cell + ':' + this.uiMap.getFiles.cell);
   }
 
-  /**
-   * @private
-   * @method Handle any errors in getConfig(). 'ui-error' is expected. All others are thrown.
-   */
-  _handleConfigError(pE) {
-    this.error = pE;
-    if (pE instanceof Exception) {
-      if (pE.code === 'ui-error') {
-        this.stu.getRange(pE.num).setBackground('#ffbbbb');
-        this.ss.toast('Fix the error highlighted in red.', pE.message + ' at ' + pE.num, -1);
-        throw pE;
-      }
-    }
-    this._reportError(pE);
-    throw pE;
+  get levelLimit() {
+    return this._levelLimit;
+  }
+  set levelLimit(pLimit) {
+    this._levelLimit = pLimit;
+    this.walkFolders.maxLevel = pLimit;
   }
 
-  /** ---------------------
-   * @method pStr will have all non-alphanumeric chars converted to '_'.
-   * The return value will be cleaned up, by removing duplicates and odd combonations that result.
-   * @param {string} pStr - a folder or file name.
+  /** -----------------
+   * This the functional part of GetList
    */
-  replaceSpecial(pStr) {
-    /**
-     * @param {string} pStr
-     * @return {string} Replace all special char with '_'
-     * Allowed: a-zA-Z0-9._-
-     * Repeated [._-] chars are removed, until only one of these remain.
-     * [._-] cannot be at beginning or end of string, remove
-     * [_-] cannot be before or after '.'
-     */
-    let regEx = /./;
-    let tResultNew = regReplace(pStr, regEx = /[^a-zA-Z0-9_.-]+/g, '_');
-    let tResult = '';
-    let tLimit = this.replaceLimit; // Just to be safe
-
-    // Loop until there are no differences
-    while (tResult != tResultNew) {
-      if (--tLimit <= 0) {
-        throw new EvalError('Possible infinite loop.');
-      }
-      tResult = tResultNew;
-      //console.info('tResult=\"' + tResult + '\" ' + tLimit);
-
-      // Don't begin or end with these chars
-      tResultNew = regReplace(tResultNew, regEx = /^[._-]+/, '');
-      tResultNew = regReplace(tResultNew, regEx = /[._-]+$/, '');
-
-      // No special char before or after '.'
-      tResultNew = regReplace(tResultNew, regEx = /[_-]\./g, '.');
-      tResultNew = regReplace(tResultNew, regEx = /\.[_-]/g, '.');
-
-      // Odd patterns, simplify
-      tResultNew = regReplace(tResultNew, regEx = /_-_/g, '-');
-      tResultNew = regReplace(tResultNew, regEx = /-_-/g, '_');
-
-      // More odd patterns
-      tResultNew = regReplace(tResultNew, regEx = /_-/g, '_');
-      tResultNew = regReplace(tResultNew, regEx = /-_/g, '-');
-
-      // Remove dups
-      tResultNew = regReplace(tResultNew, regEx = /_+/g, '_');
-      tResultNew = regReplace(tResultNew, regEx = /-+/g, '-');
-      tResultNew = regReplace(tResultNew, regEx = /[.]+/g, '.');
-    }
-
-    this.debugMsg('tResultNew=\"' + tResultNew + '\" ' + tLimit);
-    return tResultNew;
-
-    //END
-    function regReplace(pStr, pRegEx, pSub) {
-      return pStr.replace(pRegEx, pSub);
-    }
-  } // replaceSpecial
-
-  /** ---------------------
-   * @method Get all the files in the folder (if showFiles).
-   *  Create the row entry and push it to this.list.
-   * @param {obj} pFolder
-   */
-  getFileList(pFolder = this.topFolder) {
-    if (pFolder == null)
-      throw new Error('this.topFolder is not set.');
-    let tFile = null;
-    let tRow = [];
-    let tName = '';
-    let tNewName = '';
-
-    let tParentName = pFolder.getName();
-
-    let tFileList = pFolder.getFiles();
-    while (tFileList.hasNext()) {
-      tFile = tFileList.next();
-      tName = tFile.getName();
-      tNewName = tName;
-      if (this.rename)
-        tNewName = this.replaceSpecial(tName);
-      if (this.rename && this.onlyShowDiff && tNewName == tName)
-          continue;
-      tRow = [
-        this.level,
-        tParentName + '/',
-        tName,
-        tNewName,
-        '=HYPERLINK("' + tFile.getUrl() + '", "Id")',
-      ];
-      this.list.push(tRow);
-    }
-  } // getFileList
-
-  /** ---------------------
-   * @method Get all the folders in the folder.
-   * If showFolder, create the row entry and push it to this.list.
-   * @param {obj} pFolder
-   */
-  getFolderList(pFolder = this.topFolder) {
-    if (pFolder == null)
-      throw new Error('this.topFolder is not set.');
-    if (pFolder === this.topFolder) {
-      this.list = [];
-      this.level = 0;
-    }
-    let tFolder = null;
-    let tRow = [];
-    let tName = '';
-    let tNewName = '';
-
-    ++this.level;
-    let tParentName = pFolder.getName();
-    if (this.getFiles)
-      this.getFileList(pFolder);
-
-    let tFolderList = pFolder.getFolders();
-    while (tFolderList.hasNext()) {
-      tFolder = tFolderList.next();
-      if (this.getFolders) {
-        tName = tFolder.getName();
-        tNewName = tName;
-        if (this.rename)
-          tNewName = this.replaceSpecial(tName);
-        if (this.rename && this.onlyShowDiff && tNewName != tName)
-          continue;
-        tRow = [
-          this.level,
-          tParentName + '/',
-          tName + '/',
-          tNewName + '/',
-          '=HYPERLINK("' + tFolder.getUrl() + '", "Id")',
-        ];
-        this.list.push(tRow);
-      }
-      if (this.level < this.levelLimit) {
-        this.getFolderList(tFolder);
-        --this.level;
-      }
-    }
+  getFolderList() {
+    this.list = [];
+    this.parentPath = [];
+    this.count = 0;
+    this.walkFolders.start(this.topFolder);
   } // getFolderList
+
+  processElement(pArg = {}) {
+    let pElement = fDefault(pArg.element, null);
+    let pLevel = fDefault(pArg.level, 0);
+    let pType = fDefault(pArg.type, '');
+
+    if (pElement == null)
+      throw new SyntaxError('Missing file handle.');
+    if (pLevel <= 0)
+      throw new SyntaxError('Invalid level: ' + pArg.level);
+    if (pType != '' && pType != '/')
+      throw new SyntaxError('For type, expected / or nothing.');
+
+    ++this.count;
+    if (this.count % this.statusCount == 0)
+      this.ss.toast('Processed: ' + this.count, 'Get List Running', -1);
+
+    let tName = pElement.getName();
+    let tNameLink = '=HYPERLINK("' + pElement.getUrl() + '", "Id")';
+    let tNewName = tName;
+
+    let tParentPath = this.parentPath.join('/') + '/';
+    let tParentUrl = pArg.element.getParents().next().getUrl();
+    let tParentLink = '=HYPERLINK("' + tParentUrl + '", "' + tParentPath + '")';
+
+    if (this.rename)
+      tNewName = fReplaceSpecial(tName);
+    if (this.rename && this.onlyShowDiff && tNewName == tName)
+      return;
+
+    let tRow = [
+      pLevel,
+      tParentLink,
+      tName + pType,
+      tNewName + pType,
+      tNameLink,
+    ];
+    this.list.push(tRow);
+  } // processElement
 
   /** ---------------------
    * @method Functional entry point for renaming the current to new names, in the log sheet
@@ -504,7 +382,7 @@ class RenameFiles {
       if (tNewName === tOldName)
         continue;
 
-      tId = this._hyper2Id(tIdList[i][tColMap.Hyper]);
+      tId = fHyper2Id(tIdList[i][tColMap.Hyper]);
       if (tIsFolder.test(tNewName))
         DriveApp.getFolderById(tId).setName(tNewName.replace(tIsFolder, ''));
       else
@@ -514,24 +392,13 @@ class RenameFiles {
     this.stl.getRange(2, 6, tNumRows, 1).setValues(tYesList);
   } // _processList
 
-  /**
-   * @private
-   * @method Return Id after removing hyperlink and URL part.
-   */
-  _hyper2Id(pHyper) {
-    // =HYPERLINK("https://drive.google.com/drive/folders/1jmmhsZ881wpjgza44D3-MtxhQ0Rz2RxN", "Id")
-    let tRmHyper = /.*HYPERLINK\(\"/;
-    pHyper = pHyper.replace(tRmHyper, '');
-    let tCleanEnd = /\",.*\)$/;
-    return this._url2Id(pHyper.replace(tCleanEnd, ''));
-  }
-
   /** ---------------------
    * @method UI entry point for GetList
    */
   uiGetList() {
     try {
-      this.ss.toast('Getting the names, and putting them in sheet: "' + this.sheetLog + '"', 'Get List Running', -1);
+      this.ss.toast('Getting the names, and putting them in sheet: "' +
+        this.sheetLog + '"', 'Get List Running', -1);
       this._initializeLogSheet();
 
       this.getFolderList();
@@ -549,7 +416,7 @@ class RenameFiles {
 
   /**
    * @private
-   * @method Get the UI valuse, duplicate the log sheet, if requested,
+   * @method Get the UI values, duplicate the log sheet, if requested,
    *  clear the sheet, and add the heading.
    */
   _initializeLogSheet() {
@@ -567,6 +434,7 @@ class RenameFiles {
       ['Link'],
       ['Renamed']
     ]]);
+    this.stl.setFrozenRows(1);
   }
 
   /**

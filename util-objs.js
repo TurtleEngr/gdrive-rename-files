@@ -1,7 +1,7 @@
 /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/util-objs.js,v $
- * @copyright $Date: 2021/03/13 17:47:40 $ UTC
- * @version $Revision: 1.5 $
+ * @copyright $Date: 2021/03/17 07:05:40 $ UTC
+ * @version $Revision: 1.7 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * If testing:
@@ -94,9 +94,9 @@ function fHyper2IdStrict(pHyper) {
   if (typeof pHyper != 'string')
     throw new SyntaxError('Expected a string.');
   // =HYPERLINK("https://drive.google.com/drive/folders/1jmmhsZ881wpjgza44D3-MtxhQ0Rz2RxN", "Id")
-  let tRmHyperPrefix = /.*HYPERLINK\(\"/;
+  let tRmHyperPrefix = /.*HYPERLINK\("/;
   pHyper = pHyper.replace(tRmHyperPrefix, '');
-  let tRmTitlePart = /\",.*\)$/;
+  let tRmTitlePart = /",.*\)$/;
   return fUrl2IdStrict(pHyper.replace(tRmTitlePart, ''));
 } // fHyper2IdStrict
 
@@ -118,6 +118,31 @@ function fHyper2Id(pHyper) {
     }
   }
 } // fHyper2Id
+
+function fHyper2Title(pHyper) {
+  // Possible change: return URL if no title or empty
+  // =HYPERLINK("https://drive.google.com/drive/folders/1jmmhsZ881wpjgza44D3-MtxhQ0Rz2RxN", "Title")
+  if (typeof pHyper != 'string')
+    throw new SyntaxError('Expected a string.');
+
+  let tRmLink = /.*HYPERLINK\("[^"]*"/;
+  if (!tRmLink.test(pHyper))
+    return pHyper;
+
+  pHyper = pHyper.replace(tRmLink, '');
+
+  let tRmQuote = /, *"/;
+  if (!tRmQuote.test(pHyper))
+    throw new Exception('Expected a title.', 'warn-no-title', 'fHyper2Title-1');
+  pHyper = pHyper.replace(tRmQuote, '');
+
+  let tRmLastPart = /"\)$/;
+  pHyper = pHyper.replace(tRmLastPart, '');
+  if (pHyper === '')
+    throw new Exception('Expected a title.', 'warn-no-title', 'fHyper2Title-2');
+
+  return pHyper;
+} // fHyper2Title
 
 /**
  * @param {string} pStr
@@ -229,36 +254,42 @@ class Exception extends Error {
 /** ----------------------
  * @class
  * @classdesc Create test directory structure.
- * @param {obj} pArg = {name: 'test-tmp', size: 'large', debug: false}
+ * @param {obj} pArg = {name: 'test-tmp', size: 'large', custom: [], recreate: false, debug: false}
  * @description Test with the simple structure. With debug==true, the output can be quickly verified.
+ * If size == 'custom' then use pArg.custom to define the array structure. The top parent for the
+ * structure should be set to: 'custom-' + name
+ * If a structure exists, it can be reused. But if it is change after creation, then pArg recreate: true should be added.
  * @example tTestDirs = TestSetup({size: 'simple', debug: true});
  */
 class CreateFolderFiles {
   constructor(pArg = {}) {
-    this.name = fDefault(pArg.name, 'test-tmp');  // Top folder name SS directory
-    this.size = fDefault(pArg.size, 'large');     // Number of nested folder/files
-    this.debug = fDefault(pArg.debug, false);     // Useful to debugging the structure
+    this.size = fDefault(pArg.size, 'large');     // Use predefined structure. If 'custom', pArg.custom will be used
+    this.name = fDefault(pArg.name, 'test-tmp');  // Appended to this.size
+    this.recreate = fDefault(pArg.recreate, false);  // If true, recreate structure, if it exists
+    this.debug = fDefault(pArg.debug, false);     // Useful to debug the structure
+
+    if (! ['small', 'simple', 'medium', 'large', 'custom'].includes(this.size))
+      throw new SyntaxError('Not a valid size: ' + this.size);
 
     this.ss = SpreadsheetApp.getActiveSpreadsheet();
     this.ui = SpreadsheetApp.getUi();
     let tFileInDrive = DriveApp.getFolderById(this.ss.getId()); // Note: this does not work right afer this.ss is set.
     this.parentFolder = tFileInDrive.getParents().next();
 
+    this.topName = this.size + '-' + this.name;  // Top folder name in SS's directory
     this.testFolder = null;
-    this.testURL = '';
-    this.exists = this.parentFolder.getFoldersByName(this.name).hasNext();
-    if (this.exists) {
-      this.testFolder = this.parentFolder.getFoldersByName(this.name).next();
-      this.testURL = this.testFolder.getUrl();
-    }
+    this.listOfHandles = [];  // This is only useful for debugging, the first time a structure is created.
 
-    this.listOfHandles = [];
+    this.exists = this.parentFolder.getFoldersByName(this.topName).hasNext();
+    if (this.exists) {
+      this.testFolder = this.parentFolder.getFoldersByName(this.topName).next();
+    }
 
     this.structure = {
       simple:
         [
           [
-            { type: 'folder', name: 'folder1', parent: this.name },
+            { type: 'folder', name: 'folder1', parent: this.topName },
             { type: 'file', name: 'file1', parent: 'folder1' },
             [
               { type: 'folder', name: 'folder2', parent: 'folder1' },
@@ -267,25 +298,25 @@ class CreateFolderFiles {
             { type: 'file', name: 'file3', parent: 'folder1' },
           ],
           [
-            { type: 'folder', name: 'folder3', parent: this.name },
+            { type: 'folder', name: 'folder3', parent: this.topName },
             [
               { type: 'folder', name: 'folder4', parent: 'folder3' },
               { type: 'folder', name: 'folder5', parent: 'folder4' },
             ],
           ],
-          { type: 'file', name: 'file4', parent: this.name },
+          { type: 'file', name: 'file4', parent: this.topName },
         ],
       small:
         [
-          { type: 'file', name: 'L1^bar', parent: this.name },
-          { type: 'file', name: 'L1:foo', parent: this.name },
-          { type: 'file', name: 'L1_this_is_OK', parent: this.name },
-          { type: 'file', name: 'L1_this_is_also_ok', parent: this.name },
+          { type: 'file', name: 'L1^bar', parent: this.topName },
+          { type: 'file', name: 'L1:foo', parent: this.topName },
+          { type: 'file', name: 'L1_this_is_OK', parent: this.topName },
+          { type: 'file', name: 'L1_this_is_also_ok', parent: this.topName },
           [
-            { type: 'folder', name: 'L1 One', parent: this.name },
+            { type: 'folder', name: 'L1 One', parent: this.topName },
           ],
           [
-            { type: 'folder', name: 'L1_this_folder-is-OK', parent: this.name },
+            { type: 'folder', name: 'L1_this_folder-is-OK', parent: this.topName },
             { type: 'file', name: 'L2 uyi dg', parent: 'L1_this_folder-is-OK' },
             [
               { type: 'folder', name: 'L3h(lf)%jsi.foox ', parent: 'L1_this_folder-is-OK' },
@@ -293,10 +324,10 @@ class CreateFolderFiles {
             ],
           ],
           [
-            { type: 'folder', name: 'L1 three', parent: this.name },
+            { type: 'folder', name: 'L1 three', parent: this.topName },
           ],
           [
-            { type: 'folder', name: 'L1 Two', parent: this.name },
+            { type: 'folder', name: 'L1 Two', parent: this.topName },
             { type: 'file', name: '%*FYE $d ..L2 dg', parent: 'L1 Two' },
             { type: 'file', name: 'L2 file with lots of spaces', parent: 'L1 Two' },
 
@@ -304,10 +335,10 @@ class CreateFolderFiles {
         ],
       medium:
         [
-          { type: 'file', name: 'L1^bar', parent: this.name },
-          { type: 'file', name: 'L1:foo', parent: this.name },
+          { type: 'file', name: 'L1^bar', parent: this.topName },
+          { type: 'file', name: 'L1:foo', parent: this.topName },
           [
-            { type: 'folder', name: 'L1 One', parent: this.name },
+            { type: 'folder', name: 'L1 One', parent: this.topName },
             { type: 'file', name: '%*FYE $d ..L2 dg', parent: 'L1 One' },
             { type: 'file', name: '-L2 a"lkj"569}{l/</jx ', parent: 'L1 One' },
             { type: 'file', name: 'L2 @#$%%$^H\'DF\'DE$%^', parent: 'L1 One' },
@@ -316,7 +347,7 @@ class CreateFolderFiles {
 
           ],
           [
-            { type: 'folder', name: 'L1 three', parent: this.name },
+            { type: 'folder', name: 'L1 three', parent: this.topName },
             { type: 'file', name: '%*FYE $d ..L2 dg', parent: 'L1 three' },
             { type: 'file', name: '-L2 a"lkj"569}{l/</j', parent: 'L1 three' },
             { type: 'file', name: 'L2 @#$%%$^H\'DF\'DE$%^', parent: 'L1 three' },
@@ -324,7 +355,7 @@ class CreateFolderFiles {
 
           ],
           [
-            { type: 'folder', name: 'L1 Two', parent: this.name },
+            { type: 'folder', name: 'L1 Two', parent: this.topName },
             { type: 'file', name: '%*FYE $d ..L2 dg', parent: 'L1 Two' },
             { type: 'file', name: '-L2 a"lkj"569}{l/</j', parent: 'L1 Two' },
             { type: 'file', name: 'L2 @#$%%$^H\'DF\'DE$%^', parent: 'L1 Two' },
@@ -333,10 +364,10 @@ class CreateFolderFiles {
         ],
       large:
         [
-          { type: 'file', name: 'L1^bar', parent: this.name },
-          { type: 'file', name: 'L1:foo', parent: this.name },
+          { type: 'file', name: 'L1^bar', parent: this.topName },
+          { type: 'file', name: 'L1:foo', parent: this.topName },
           [
-            { type: 'folder', name: 'L1 One', parent: this.name },
+            { type: 'folder', name: 'L1 One', parent: this.topName },
             { type: 'file', name: '%*FYE $d ..L2 dg', parent: 'L1 One' },
             { type: 'file', name: '-L2 a"lkj"569}{l/</jx ', parent: 'L1 One' },
             { type: 'file', name: 'L2 @#$%%$^H\'DF\'DE$%^', parent: 'L1 One' },
@@ -366,7 +397,7 @@ class CreateFolderFiles {
             ],
           ],
           [
-            { type: 'folder', name: 'L1 three', parent: this.name },
+            { type: 'folder', name: 'L1 three', parent: this.topName },
             { type: 'file', name: '%*FYE $d ..L2 dg', parent: 'L1 three' },
             { type: 'file', name: '-L2 a"lkj"569}{l/</j', parent: 'L1 three' },
             { type: 'file', name: 'L2 @#$%%$^H\'DF\'DE$%^', parent: 'L1 three' },
@@ -391,7 +422,7 @@ class CreateFolderFiles {
             ],
           ],
           [
-            { type: 'folder', name: 'L1 Two', parent: this.name },
+            { type: 'folder', name: 'L1 Two', parent: this.topName },
             { type: 'file', name: '%*FYE $d ..L2 dg', parent: 'L1 Two' },
             { type: 'file', name: '-L2 a"lkj"569}{l/</j', parent: 'L1 Two' },
             { type: 'file', name: 'L2 @#$%%$^H\'DF\'DE$%^', parent: 'L1 Two' },
@@ -416,14 +447,14 @@ class CreateFolderFiles {
         ]
     }
 
-    if (pArg.custom != undefined) {
+    if (this.size == 'custom') {
+      if (pArg.custom == undefined || !Array.isArray(pArg.custom))
+          throw new SyntaxError('pArg.custom is not defined or is not an array.');
       this.structure['custom'] = pArg.custom;
-      this.size = 'custom';
     }
 
-    /*
-     * This makes the "assertThrow" work for testing.
-     */
+
+    // This makes the "assertThrow" work for testing.
     this.addTestFolder = this.addTestFolder.bind(this);
   } // constructor
 
@@ -432,39 +463,40 @@ class CreateFolderFiles {
    */
   delTestFolder() {
     if (!this.exists) {
-      if (this.debug) console.warn('Folder "' + this.name + '" does not exist.');
-      return;
+      if (this.debug) console.warn('Folder "' + this.topName + '" does not exist.');
+      return 'Already deleted: ' + this.topName;
     }
     this.testFolder.setTrashed(true);
     this.exists = false;
     this.testFolder = null;
-    this.testURL = '';
     this.listOfHandles = [];
-    if (this.debug) console.info('Moved folder ' + this.name + ' to trash.');
-    this.ss.toast('Moved folder ' + this.name + ' to trash.', 'Notice', 30);
+    if (this.debug) console.info('Moved folder ' + this.topName + ' to trash.');
+    this.ss.toast('Moved folder ' + this.topName + ' to trash.', 'Notice', 30);
+    return 'Deleted: ' + this.topName;
   } // delTestFolder
 
   /** ----------------------
-   * @method Add the folders specified with this.size and this.name
+   * @method Add the folders specified with this.size and this.topName
+   * @return testFolder handle.
    */
   addTestFolder() {
     try {
+      if (this.exists && this.recreate)
+        this.delTestFolder();
       if (this.exists) {
-        console.warn('Folder ' + this.name + ' already exists. ' + this.testURL);
-        return this.testURL;
+        console.warn('Folder ' + this.topName + ' already exists.');
+        return this.testFolder;
       }
 
       console.time('addTestFolders');
-      if (this.debug) console.info('Creating: ' + this.name + ' size=' + this.size);
-      this.testFolder = this.parentFolder.createFolder(this.name);
-      this.testURL = this.testFolder.getUrl();
+      if (this.debug) console.info('Creating: ' + this.topName + ' size=' + this.size);
+      this.testFolder = this.parentFolder.createFolder(this.topName);
       this.exists = true;
 
-      this._walkStructure(this.structure[this.size], this.testFolder, this.name);
+      this._walkStructure(this.structure[this.size], this.testFolder, this.topName);
       console.timeEnd('addTestFolders');
 
-      return this.testURL;
-
+      return this.testFolder;
     } catch (e) {
       if (this.debug) console.error(e.stack);
       throw e;
@@ -492,11 +524,11 @@ class CreateFolderFiles {
 
     //END
     function elParentMatches(pEl, pFolderName) {
-      if (pEl.name === '')
+      if (fDefault(pEl.name, '') == '')
         throw new Error('Internal Error: missing name.');
-      if (pEl.type === '')
+      if (fDefault(pEl.type, '') == '')
         throw new Error('Internal Error: missing type.');
-      if (pEl.parent != undefined && pEl.parent !== pFolderName)
+      if (fDefault(pEl.parent, '') != '' && pEl.parent !== pFolderName)
         throw new SyntaxError('Bad structure. Expected: "' + pFolderName + '"');
     }
   } // _processElement
@@ -537,28 +569,31 @@ class CreateFolderFiles {
  */
 class WalkFolderFiles {
   constructor(pArg = {}) {
-    this.topFolder = pArg.topFolder;  // TBD pass to start
-    this.collectObj = pArg.collectObj;
+    this.collectObj = fDefault(pArg.collectObj, null);
     this.maxLevel = fDefault(pArg.maxLevel, 1);
     this.incFiles = fDefault(pArg.incFiles, true);
     this.debug = fDefault(pArg.debug, false);
 
-    if (typeof this.collectObj.processFile !== 'function')
-      throw new SyntaxError('processFile is missing from Collection obj');
-    if (typeof this.collectObj.processFolder !== 'function')
-      throw new SyntaxError('processFolder is missing from Collection object.');
+    if (this.collectObj == null)
+      throw new SyntaxError('collectObj param is required.');
+    if (!('parentPath' in this.collectObj))
+      throw new SyntaxError('collectObj is missing parentPath property.');
+    if (typeof this.collectObj.processElement !== 'function')
+      throw new SyntaxError('processElement is missing from Collection obj');
   }
 
-  start() {
-    if (this.topFolder == null)
-      throw new Error('The top folder is not set.');
-    this._walkFolders(this.topFolder, 1);
+  start(pTopFolder) {
+    if (fDefault(pTopFolder, null) == null)
+      throw new SyntaxError('pTopFolder param is required.');
+    this._walkFolders(pTopFolder, 1);
   }
 
   _walkFolders(pFolder, pLevel) {
+    this.collectObj.parentPath.push(pFolder.getName());
     if (this.incFiles)
-      this._getFiles(pFolder, pLevel);
-    pFolder = this._getFolders(pFolder.getFolders(), pFolder, pLevel);
+        this._getFiles(pFolder, pLevel);
+    this._getFolders(pFolder.getFolders(), pFolder, pLevel);
+    this.collectObj.parentPath.pop();
   }
 
   _getFiles(pFolder, pLevel) {
@@ -566,7 +601,7 @@ class WalkFolderFiles {
     while (tFiles.hasNext()) {
       let tFile = tFiles.next();
       if (this.debug) console.info('Got file: ' + tFile.getName());
-      this.collectObj.processFile({ element: tFile, level: pLevel });
+      this.collectObj.processElement({ element: tFile, level: pLevel, type: '' });
     }
   }
 
@@ -574,7 +609,7 @@ class WalkFolderFiles {
     while (pFolderList.hasNext()) {
       pFolder = pFolderList.next();
       if (this.debug) console.info('Got folder: ' + pFolder.getName());
-      this.collectObj.processFolder({ element: pFolder, level: pLevel });
+      this.collectObj.processElement({ element: pFolder, level: pLevel, type: '/' });
       if (pLevel < this.maxLevel)
         this._walkFolders(pFolder, pLevel + 1);
     }
