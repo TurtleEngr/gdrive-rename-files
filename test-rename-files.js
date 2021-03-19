@@ -1,7 +1,7 @@
 /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/test-rename-files.js,v $
- * @copyright $Date: 2021/03/17 07:07:42 $ UTC
- * @version $Revision: 1.10 $
+ * @copyright $Date: 2021/03/19 02:58:54 $ UTC
+ * @version $Revision: 1.11 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * @requires gsunit-test.gs
@@ -278,8 +278,8 @@ function defUnitCheckConfig(pTest, pUnit) {
   } // testValidateFail
 
   // --------
-  pTest.addTest(testGetConfig);
-  function testGetConfig() {
+  pTest.addTest(testGetConfig1);
+  function testGetConfig1() {
     let tRenObj = new RenameFiles({ logName: 'RenameList', test: true, debug: true });
     // Set to false so you can watch the UI change on Interface sheet
     //pTest.showPass = false;
@@ -318,7 +318,76 @@ function defUnitCheckConfig(pTest, pUnit) {
     }
     setDefaults(tRenObj);
     tRenObj._getConfig();
-  } // testGetConfig
+  } // testGetConfig1
+
+  // --------
+  pTest.addTest(testGetConfig2);
+  function testGetConfig2() {
+    let tRenObj = new RenameFiles({ logName: 'RenameList', test: true, debug: true });
+    // Set to false so you can watch the UI change on Interface sheet
+    //pTest.showPass = false;
+    //pTest.showResults = false;
+    let tSetup = new CreateFolderFiles({debug: true});
+    let tFolder = tSetup.addTestFolder(); // create test folders in SS parent folder
+    tRenObj._setTopFolderById(tFolder.getUrl());
+
+    setDefaults(tRenObj);
+    tRenObj._getConfig();
+
+    try {
+      setDefaults(tRenObj);
+      // Define bad values
+      setUiFields(tRenObj, { getFolders: 'no' });
+      setUiFields(tRenObj, { getFiles: 'no' });
+      tRenObj._getConfig();
+      pUnit.fail('Error was not detected.', 'tgc2-1');
+    } catch (e) {
+      if (e instanceof Exception) {
+        pUnit.assertEqual('Check msg.', e.message, 'Nothing will be done, because both are "no".', 'tgc2-2');
+      } else {
+        console.error(e.stack)
+        pUnit.fail('Unexpected error: ' + e.toString(), 'tgc2-3');
+      }
+    }
+    setDefaults(tRenObj);
+  } // testGetConfig2
+
+  // --------
+  pTest.addTest(testGetConfig3);
+  function testGetConfig3() {
+    let tRenObj = new RenameFiles({ logName: 'RenameList', test: true, debug: true });
+    // Set to false so you can watch the UI change on Interface sheet
+    //pTest.showPass = false;
+    //pTest.showResults = false;
+    let tSetup = new CreateFolderFiles({debug: true});
+    let tFolder = tSetup.addTestFolder(); // create test folders in SS parent folder
+    tRenObj._setTopFolderById(tFolder.getUrl());
+
+    try {
+      setDefaults(tRenObj);
+      tRenObj._getConfig();
+      // Define OK values
+      setUiFields(tRenObj, { getFolders: 'yes' });
+      setUiFields(tRenObj, { getFiles: 'no' });
+      tRenObj._getConfig();
+
+    } catch (e) {
+      console.error(e.stack)
+      pUnit.fail('Unexpected error: ' + e.toString(), 'tgc3-1');
+    }
+
+    try {
+      setDefaults(tRenObj);
+      tRenObj._getConfig();
+      // Define OK values
+      setUiFields(tRenObj, { getFolders: 'no' });
+      setUiFields(tRenObj, { getFiles: 'yes' });
+      tRenObj._getConfig();
+    } catch (e) {
+      console.error(e.stack)
+      pUnit.fail('Unexpected error: ' + e.toString(), 'tgc3-2');
+    }
+  } // testGetConfig3
 } // checkConfigUnit
 
 /** ----------------------

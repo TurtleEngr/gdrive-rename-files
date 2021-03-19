@@ -1,7 +1,7 @@
 /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/rename-files.js,v $
- * @copyright $Date: 2021/03/17 07:07:42 $ UTC
- * @version $Revision: 1.30 $
+ * @copyright $Date: 2021/03/19 02:58:54 $ UTC
+ * @version $Revision: 1.31 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * If testing:
@@ -109,7 +109,7 @@ class RenameFiles {
 
     // Interface spreadsheet mapping vars
     this.uiInfo = {
-      version: { cell: 'A2', index: 0, type: 's', value: '$Revision: 1.30 $' },
+      version: { cell: 'A2', index: 0, type: 's', value: '$Revision: 1.31 $' },
       topFolderName: { cell: 'D3', index: 0, type: 's', value: '' },
     };
     this.uiRange = { cell: 'B3:B13' };
@@ -262,7 +262,7 @@ class RenameFiles {
   }
   set getFolders(pState) {
     this._getFolders = pState;
-    if (!this._getFiless && !pState)
+    if (!this._getFiles && !pState)
       throw new Exception('Nothing will be done, because both are "no".', 'ui-error',
         this.uiMap.getFolders.cell + ':' + this.uiMap.getFiles.cell);    
   }
@@ -454,7 +454,6 @@ class RenameFiles {
    */
   _sortRows() {
     let tSortOrder = [
-      { column: 1, ascending: true },
       { column: 2, ascending: true },
       { column: 4, ascending: true }
     ];
@@ -471,13 +470,15 @@ class RenameFiles {
     // A 42; B 300; C 300; D 300; E 32; F 72 = 1046
     let tCol = 0;
     let tTotalWidth = 0;
+    let tNumRows = this.stl.getLastRow() - 1;
+    this.stl.getRange(2, 2, tNumRows, 4).setWrap(false); // needs to be false for autoResize to work
     this.stl.autoResizeColumns(1, 6);
     for (tCol = 1; tCol <= 6; ++tCol)
       tTotalWidth += this.stl.getColumnWidth(tCol);
+
     if (tTotalWidth > tMaxWidth)
       for (tCol = 2; tCol <= 4; ++tCol)
         this.stl.setColumnWidth(tCol, tNameColWidth);
-    let tNumRows = this.stl.getLastRow() - 1;
     this.stl.getRange(2, 2, tNumRows, 4).setWrap(true);
   }
 
@@ -555,4 +556,4 @@ class RenameFiles {
     this._reportError(pE);
     return 'unexpected';
   }
-} //RenameFiles
+} // RenameFiles
