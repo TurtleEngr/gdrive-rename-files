@@ -1,6 +1,6 @@
 # gdrive-rename-files
 
-$Date: 2021/03/19 20:49:40 $ UTC
+$Date: 2021/03/19 23:28:23 $ UTC
 
 This Google Apps Script application will list and rename folders and
 files in your Google Drive.
@@ -56,7 +56,7 @@ files: gsunit-test.gs, test-util-objs.gs, and
 test-rename-files.gs. Put them in that order after the rename-file.gs
 script.
 
-The Rename-Files menus will automatically updated when you reload the
+The Rename-Files menus will automatically update when you reload the
 spreadsheet.
 
 If didn't start with the Quick Start Google Sheet, you can upload the
@@ -87,7 +87,7 @@ the scope will be unknown unless you go looking.
 	*  obj._name   - a class variable that is assumed to be private (do not depend on it)
 	*  obj.name()  - a class method
 	*  _name()     - a function or method that is assumed to be private (do not depend on it)
-	*  obj.uiName()- this method is probably called by a menuName() function
+	*  obj.uiName() - this method is probably called by a menuName() function
 	*  menuName()  - a menu item is usually bound to these functions, and they call obj.uiName() methods
 	*  fName()     - usually a global function
 	*  runName()   - run the defined tests. No args, so that it can be called by a menu item. See RunTests class
@@ -114,3 +114,23 @@ sections that will be run before and after test sections. Then the
 duplicate code can be reduced. Also I probably put too many asserts in
 the different test sections. However I did try to make sure there were
 no dependencies between test functions.
+
+---
+
+Release Checklist
+-----------------
+
+- Have ALL unit tests been run?
+- Update CHANGES.md and README.md
+- Download the latest spreadsheet and doc files from gdrive.
+- Check in all code: cvs ci; git ci
+- Fixup the Revision and Date keywords in the spreadsheet scripts
+- Publish:
+	- git push origin develop
+	- git co main
+	- git merge develop
+	- git push origin main
+- Create the new Release, tagging "main" branch. Use the CVS Revision
+keyword value in rename-file for the version number.
+- Copy the spreadsheet, with scripts, to the Released/Software folder
+(rename the spreadsheet with the version number).
