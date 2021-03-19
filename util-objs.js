@@ -1,7 +1,7 @@
 /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/util-objs.js,v $
- * @copyright $Date: 2021/03/17 07:05:40 $ UTC
- * @version $Revision: 1.7 $
+ * @copyright $Date: 2021/03/19 18:25:36 $ UTC
+ * @version $Revision: 1.8 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * If testing:
@@ -36,6 +36,19 @@ function fDefault(pArg, pDefault) {
     return pDefault;
   return pArg
 }
+
+/**
+ * Return a default int for pArg.
+ */
+function fDefaultInt(pArg, pDefault) {
+  if (pArg == 'undefined' || pArg == null || pArg == '' | pArg == NaN)
+    return pDefault;
+  pArg = Math.abs(pArg);
+  pArg = Math.floor(pArg);
+  if (pArg < pDefault)
+    pArg = pDefault;
+  return pArg
+}    this.maxLevel = Math.floor(this.maxLevel);
 
 /**
  * @returns Return just the Id part of a gdrive URL. See also: fHyper2Id()
@@ -570,7 +583,7 @@ class CreateFolderFiles {
 class WalkFolderFiles {
   constructor(pArg = {}) {
     this.collectObj = fDefault(pArg.collectObj, null);
-    this.maxLevel = fDefault(pArg.maxLevel, 1);
+    this.maxLevel = fDefaultInt(pArg.maxLevel, 1);
     this.incFiles = fDefault(pArg.incFiles, true);
     this.debug = fDefault(pArg.debug, false);
 
@@ -580,6 +593,9 @@ class WalkFolderFiles {
       throw new SyntaxError('collectObj is missing parentPath property.');
     if (typeof this.collectObj.processElement !== 'function')
       throw new SyntaxError('processElement is missing from Collection obj');
+
+    // This makes the "assertThrow" work for testing.
+    this.start = this.start.bind(this);
   }
 
   start(pTopFolder) {

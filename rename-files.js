@@ -1,7 +1,7 @@
 /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/rename-files.js,v $
- * @copyright $Date: 2021/03/19 02:58:54 $ UTC
- * @version $Revision: 1.31 $
+ * @copyright $Date: 2021/03/19 18:31:39 $ UTC
+ * @version $Revision: 1.32 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * If testing:
@@ -109,7 +109,7 @@ class RenameFiles {
 
     // Interface spreadsheet mapping vars
     this.uiInfo = {
-      version: { cell: 'A2', index: 0, type: 's', value: '$Revision: 1.31 $' },
+      version: { cell: 'A2', index: 0, type: 's', value: '$Revision: 1.32 $' },
       topFolderName: { cell: 'D3', index: 0, type: 's', value: '' },
     };
     this.uiRange = { cell: 'B3:B13' };
@@ -245,6 +245,8 @@ class RenameFiles {
     let tValue = pValues[this.uiMap[pKey].index][0];
     if (tValue == NaN)
       throw new Exception('Invalid value', 'ui-error', this.uiMap[pKey].cell);
+    tValue = Math.abs(tValue);
+    tValue = Math.floor(tValue);
     if (tValue < this.uiMap[pKey].min || tValue >= this.uiMap[pKey].max)
       throw new Exception('Invalid value', 'ui-error', this.uiMap[pKey].cell);
     return tValue;

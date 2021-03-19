@@ -1,7 +1,7 @@
 /**
  * $Source: /repo/public.cvs/app/gdrive-rename-files/github/test-rename-files.js,v $
- * @copyright $Date: 2021/03/19 02:58:54 $ UTC
- * @version $Revision: 1.11 $
+ * @copyright $Date: 2021/03/19 18:31:39 $ UTC
+ * @version $Revision: 1.12 $
  * @author TurtleEngr
  * @license https://www.gnu.org/licenses/gpl-3.0.txt
  * @requires gsunit-test.gs
@@ -35,10 +35,11 @@
  */
 function menuTestRename(pUi, pMenu) {
   pMenu = pMenu.addSeparator()
-    .addSubMenu(pUi.createMenu('Test Replace')
-      .addItem('Clean Up Replace Tests', 'runReplaceCleanup')
-      .addItem('Run All non-UI Rename Tests', 'runAllNonUiReplaceTests')
-      .addItem('Run All UI Rename Tests', 'runAllUiReplaceTests')
+    .addSubMenu(pUi.createMenu('Test Rename')
+      .addItem('Clean Up Rename Tests', 'runRenameCleanup')
+      .addItem('Run All Rename Tests', 'runAllRenameTests')
+      .addItem('Run All non-UI Rename Tests', 'runAllNonUiRenameTests')
+      .addItem('Run All UI Rename Tests', 'runAllUiRenameTests')
       .addItem('Make Class', 'runMakeClass')
       .addItem('Check Config', 'runCheckConfig')
       .addItem('Get Files Test', 'runGetFilesTest')
@@ -57,15 +58,25 @@ function menuTestRename(pUi, pMenu) {
 /** ----------------------
  * @function Cleanup after all tests.
  */
-function runReplaceCleanup() {
+function runRenameCleanup() {
   let testF = new CreateFolderFiles();
   testF.delTestFolder();
-} // runReplaceCleanup
+} // runRenameCleanup
 
 /** ----------------------
  * @function Run all non-UI unit tests. List them in the array passed to runTests.
  */
-function runAllNonUiReplaceTests() {
+function runAllRenameTests() {
+  let tSetup = new CreateFolderFiles();
+  tSetup.delTestFolder();
+  runRenameTests([defUnitMakeClass, defUnitGetFiles, defUnitGetFiles2, 
+    defUnitCheckConfig, defUnitGetFilesUi, defUnitRenameFiles, defUnitUndoFiles])
+}
+
+/** ----------------------
+ * @function Run all non-UI unit tests. List them in the array passed to runTests.
+ */
+function runAllNonUiRenameTests() {
   let tSetup = new CreateFolderFiles();
   tSetup.delTestFolder();
   runRenameTests([defUnitMakeClass, defUnitGetFiles, defUnitGetFiles2])
@@ -74,7 +85,7 @@ function runAllNonUiReplaceTests() {
 /** ----------------------
  * @function Run all UI unit tests. List them in the array passed to runTests.
  */
-function runAllUiReplaceTests() {
+function runAllUiRenameTests() {
   let tSetup = new CreateFolderFiles();
   tSetup.delTestFolder();
   runRenameTests([defUnitCheckConfig, defUnitGetFilesUi, defUnitRenameFiles, defUnitUndoFiles])
@@ -131,7 +142,7 @@ function runRenameTests(pTestFun = []) {
 
   var tUnit = new GsUnit({ name: 'base', debug: false });
 
-  let tRun = new RunTests({ name: "TestReplace", debug: false, gsunit: tUnit });
+  let tRun = new RunTests({ name: "TestRename", debug: false, gsunit: tUnit });
   tRun.debug = false;
   tRun.showPass = true;
   tRun.showInConsole = true;
