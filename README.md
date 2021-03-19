@@ -1,5 +1,7 @@
 # gdrive-rename-files
 
+$Date$ UTC
+
 This Google Apps Script application will list and rename folders and
 files in your Google Drive.
 
@@ -19,23 +21,27 @@ options. The files are listed in another sheet-tab.
 
 For more details see the
 [User Guide](https://docs.google.com/document/d/e/2PACX-1vRQ8aH-xnfdVKmRKU7wLl2wmV87fvQSy_o1907iPiTUN56cKKcQrfjxAakGhLyYcHqCQ04dIhodkt6B/pub).
+(This link is also in the Spreadsheet. And the source doc is versioned in:
+Rename_Files_User_Guide.docx)
 
 ## Quick Start
 
-You can get the latest stable version of the SpreadSheet, with the
-scripts attached, in my Google Drive at: [Released -> Software]
-(https://drive.google.com/drive/u/0/folders/1fvYI6-K9wnxigz4XJovfEhzoY0m1_liI)
+You can get the latest stable version of the Spreadsheet, with the
+scripts attached, in my Google Drive at:
+[Released -> Software](https://drive.google.com/drive/u/0/folders/1fvYI6-K9wnxigz4XJovfEhzoY0m1_liI)
 
 Copy the spreadsheet to your Google Drive.
+
+(gdrive-util-scripts.xlsx is the base spreadsheet file, with no scripts.)
 
 ## Implementation Notes
 
 This is my first "complete" Google Apps Script application. I used a
-Test Driven Development process for creating this app. See my blog
-[Clean Code]
-(https://slowengineering.wordpress.com/2021/02/25/clean-code/) for why
-I used TDD. I stated with another person's GSUnit test library, but it
-disappeared, so I created my own test library and test driver. See
+Test Driven Development process for creating this app. See my
+[Clean Code](https://slowengineering.wordpress.com/2021/02/25/clean-code/)
+blog post for why I used TDD. I started with another person's GSUnit
+test library, but it disappeared (and the source code repo was not
+complete), so I created my own test library and test driver. See
 repository [gsunit-test](https://github.com/TurtleEngr/gsunit-test).
 
 ## Update Notes
@@ -50,7 +56,7 @@ files: gsunit-test.gs, test-util-objs.gs, and
 test-rename-files.gs. Put them in that order after the rename-file.gs
 script.
 
-The Rename-Files menus will automattically updated when you reload the
+The Rename-Files menus will automatically updated when you reload the
 spreadsheet.
 
 If didn't start with the Quick Start Google Sheet, you can upload the
@@ -59,7 +65,7 @@ gdrive-util-scripts.xlsx to your Google Drive. Then attach the scripts.
 ## Coding Style
 
 Experienced JavaScript programmers will probably not like my style.
-JavaScipt is a new language for me. I've been a software engineer for
+JavaScript is a new language for me. I've been a software engineer for
 40 years. I know more than 10 computer languages, and I'm am
 proficient in 5. So I have developed my own way of using a subset
 of languages. I.e. I do not used ALL of the quirky features that are
@@ -93,7 +99,7 @@ the scope will be unknown unless you go looking.
 the "throws" in low level functions, so that the upper level functions
 are not cluttered with error handling.
 
-- I try to refactor 'if' statemts to exit early, to that will reduce
+- I try to refactor 'if' statements to exit early, to that will reduce
 the need for 'else' statements.
 
 - I try to put the bulk of the application in class objects. Yes, I

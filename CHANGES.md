@@ -19,7 +19,7 @@ Notes, Update Notes, and Coding Style
 ### Tests
 - Fixed tests in test-util-objs
 - Added failure tests to test-util-objs for WalkFolderFiles
-- In test-utils-objs, fixed the top names of the expected test foldeers.
+- In test-utils-objs, fixed the top names of the expected test folders.
 
 ---
 
@@ -32,7 +32,7 @@ Changes in gdrive-rename-files-v-1.31
 ### Internal Changes
 - Added fHyper2Title to util-objs
 - Added "recreate" param to CreateFolderFiles class. This can speed up
-testing. Only set recreate to true if the strucure was changed by a
+testing. Only set recreate to true if the structure was changed by a
 test.
 
 ### Tests
@@ -52,7 +52,7 @@ Changes in gdrive-rename-files-v-1.30
 - Factored out more general functions and classes. Put them in util-objs.
 - Refactored rename-files to use the functions and classes in util-objs
 - Generalized the "walk file folders" code to a class, with callbacks
-to handle filders or files.
+to handle folders or files.
 - Cleaned up handling of default params
 - Removed debugMsg() method. Replaced with more direct if stmts.
 - Added getter/setter methods for properties that are "shared" with
