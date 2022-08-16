@@ -38,11 +38,11 @@ Copy the spreadsheet to your Google Drive.
 
 This is my first "complete" Google Apps Script application. I used a
 Test Driven Development process for creating this app. See my
-[Clean Code](https://slowengineering.wordpress.com/2021/02/25/clean-code/)
-blog post for why I used TDD. I started with another person's GSUnit
+*[Clean Code](https://slowengineering.wordpress.com/2021/02/25/clean-code/)
+blog post* for why I used TDD. I started with another person's GSUnit
 test library, but it disappeared (and the source code repo was not
 complete), so I created my own test library and test driver. See
-repository [gsunit-test](https://github.com/TurtleEngr/gsunit-test).
+repository *[gsunit-test](https://github.com/TurtleEngr/gsunit-test)*.
 
 ## Update Notes
 
@@ -120,6 +120,7 @@ no dependencies between test functions.
 Release Checklist
 -----------------
 
+- Do all functions and methods have unit tests?
 - Have ALL unit tests been run?
 - Update CHANGES.md and README.md
 - Download the latest spreadsheet and doc files from gdrive.
