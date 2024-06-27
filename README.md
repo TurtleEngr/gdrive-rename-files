@@ -1,6 +1,6 @@
 # gdrive-rename-files
 
-$Date: 2021/03/19 23:28:23 $ UTC
+$Date: 2023/03/28 03:28:13 $ UTC
 
 This Google Apps Script application will list and rename folders and
 files in your Google Drive.
